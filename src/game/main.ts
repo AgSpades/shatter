@@ -2,6 +2,8 @@ import { Boot } from './scenes/Boot';
 import { GameOver } from './scenes/GameOver';
 import { Game as MainGame } from './scenes/Game';
 import { MainMenu } from './scenes/MainMenu';
+import { FullscreenPrompt } from './scenes/FullscreenPrompt';
+import { LarvaDisposalPit } from './scenes/LarvaDisposalPit';
 import { AUTO, Game } from 'phaser';
 import { Preloader } from './scenes/Preloader';
 
@@ -12,7 +14,7 @@ const config: Phaser.Types.Core.GameConfig = {
     width: 1536,
     height: 1024,
     parent: 'game-container',
-    backgroundColor: '#028af8',
+    backgroundColor: '#1a1a1d',
     scale: {
         mode: Phaser.Scale.RESIZE,
         width: '100%',
@@ -21,7 +23,9 @@ const config: Phaser.Types.Core.GameConfig = {
     scene: [
         Boot,
         Preloader,
+        FullscreenPrompt,
         MainMenu,
+        LarvaDisposalPit,
         MainGame,
         GameOver
     ]
