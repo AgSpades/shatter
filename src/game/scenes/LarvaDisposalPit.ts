@@ -81,25 +81,53 @@ export class LarvaDisposalPit extends Scene {
 
         const body = this.player.body as Phaser.Physics.Arcade.Body;
         const speed = 300;
-        const jumpStrength = -650; // Needs to overcome 1500 gravity
+        const jumpStrength = -650;
+        const jumpCut = 0.5; // Multiplier to cut velocity when releasing button
+        const maxLookOffset = 150;
 
         // Horizontal Movement
         if (this.cursors.left.isDown) {
             body.setVelocityX(-speed);
         } else if (this.cursors.right.isDown) {
             body.setVelocityX(speed);
-        } else {
-            // Drag handles deceleration, but we can also force zero if we want SUPER snappy
-            // body.setAccelerationX(0); 
         }
 
-        // Jump (only when touching floor)
-        if ((this.cursors.up.isDown || this.cursors.space.isDown) && body.touching.down) {
+        // Variable Jump Logic
+        // 1. Start Jump
+        if (Phaser.Input.Keyboard.JustDown(this.cursors.space) && body.touching.down) {
             body.setVelocityY(jumpStrength);
         }
+        
+        // 2. Cut Jump (Variable Height)
+        if (Phaser.Input.Keyboard.JustUp(this.cursors.space)) {
+            if (body.velocity.y < 0) {
+                 body.setVelocityY(body.velocity.y * jumpCut);
+            }
+        }
+
+        // Camera Look Logic (Up/Down)
+        let targetOffsetY = 0;
+        
+        if (this.cursors.up.isDown) {
+            // Look Up -> moves camera up (which means offset y increases in negative? No, follow offset behaves inversely usually, let's test)
+            // Actually, setFollowOffset(x, y): "The amount to offset the focus position by."
+            // If we want to see UP, we need the camera to move UP relative to player.
+            // Camera Y = Player Y + Offset Y. 
+            // So to look UP (camera moves up), Offset Y should be NEGATIVE.
+            targetOffsetY = -maxLookOffset;
+        } else if (this.cursors.down.isDown) {
+             // Look Down
+            targetOffsetY = maxLookOffset;
+        }
+
+        // Smoothly interpolate current offset to target
+        const currentOffsetY = this.camera.followOffset.y;
+        const lerpedOffset = Phaser.Math.Linear(currentOffsetY, targetOffsetY, 0.05); // 0.05 = smooth speed
+        
+        this.camera.setFollowOffset(0, lerpedOffset);
 
         // Keep text above player
-        this.narrativeText.x = body.x + 16; // Center on width (32/2)
+        this.narrativeText.x = body.x + 16;
         this.narrativeText.y = body.y - 40;
     }
 }
