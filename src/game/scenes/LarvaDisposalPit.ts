@@ -1,16 +1,13 @@
 import { Scene } from 'phaser';
+import { Player } from '../objects/Player';
 
 export class LarvaDisposalPit extends Scene {
     camera: Phaser.Cameras.Scene2D.Camera;
-    player: Phaser.Physics.Arcade.Sprite;
+    player: Player;
     cursors: Phaser.Types.Input.Keyboard.CursorKeys;
     narrativeText: Phaser.GameObjects.Text;
     platforms: Phaser.Physics.Arcade.StaticGroup;
     private canMove: boolean = false;
-    private canDoubleJump: boolean = false;
-    private isDashing: boolean = false;
-    private canDash: boolean = true;
-    private lastFacing: 'left' | 'right' = 'right';
 
     constructor() {
         super('LarvaDisposalPit');
@@ -24,7 +21,6 @@ export class LarvaDisposalPit extends Scene {
         this.platforms = this.physics.add.staticGroup();
 
         // 1. The Pit Floor (Start)
-        this.platforms.create(1000, 1975, 'ground').setSize(2000, 50).setVisible(false); // Invisible physics body if we want custom graphics, or just use Rects
         // Actually, let's use Add.Rectangle and add to group for visible protoyping
         const addPlatform = (x: number, y: number, w: number, h: number, color: number = 0x4F6B57) => {
             const plat = this.add.rectangle(x, y, w, h, color);
@@ -56,35 +52,9 @@ export class LarvaDisposalPit extends Scene {
         addPlatform(1600, 600, 800, 50, 0xC9A24D); // Safe ledge
 
         // --- Player (The Shell) ---
-        // Spawn at bottom
-        const playerSprite = this.add.sprite(768, 1900, 'sprite1');
-        playerSprite.setDisplaySize(100, 100);
-        this.physics.add.existing(playerSprite);
-        this.player = playerSprite as Phaser.Physics.Arcade.Sprite;
-
-        // Physics properties
-        const body = this.player.body as Phaser.Physics.Arcade.Body;
+        // Instantiated via new Class
+        this.player = new Player(this, 768, 1900);
         
-        // Sprite texture bounds adjustment
-        // Box Width: 40% of texture
-        // Box Height: 60% of texture (Shorter to avoid empty space at bottom)
-        const width = this.player.width * 0.4;
-        const height = this.player.height * 0.6;
-        
-        body.setSize(width, height); 
-        
-        // Offset Calculation:
-        // X: Centered
-        // Y: Positioned to leave ~15% padding at the bottom (assuming feet are there)
-        const offsetX = (this.player.width - width) / 2;
-        const offsetY = this.player.height - height - (this.player.height * 0.15); // Move UP by 15% of height
-        
-        body.setOffset(offsetX, offsetY);
-        
-        body.setDragX(1200);
-        body.setMaxVelocity(400, 1000);
-        body.setCollideWorldBounds(true);
-
         // World Bounds
         this.physics.world.setBounds(0, 0, 2000, 2000);
 
@@ -169,115 +139,30 @@ export class LarvaDisposalPit extends Scene {
         timeline.play();
     }
 
-    private startDash(body: Phaser.Physics.Arcade.Body) {
-        this.isDashing = true;
-        this.canDash = false;
-        
-        // Physics alterations for dash
-        body.allowGravity = false;
-        const originalDrag = body.drag.x;
-        const originalMaxVelX = body.maxVelocity.x; // Store original max velocity
-        
-        body.setDragX(0); 
-        body.setMaxVelocity(10000, body.maxVelocity.y); // Uncap X velocity safely
-        
-        // Dash Velocity
-        const dashSpeed = 800; // @note dash speed controls
-        const direction = this.lastFacing === 'left' ? -1 : 1;
-        
-        body.setVelocityX(dashSpeed * direction);
-        body.setVelocityY(0);
-
-        // Stop Dash Event
-        this.time.delayedCall(200, () => { // Increased duration slightly (150 -> 200)
-            this.isDashing = false;
-            body.allowGravity = true;
-            body.setDragX(originalDrag);
-            body.setMaxVelocity(originalMaxVelX, body.maxVelocity.y); // Restore Max Velocity cap
-            
-            // Dampen velocity so player slows down naturally
-            body.setVelocityX(body.velocity.x * 0.2);
-        });
-
-        // Cooldown Event
-        this.time.delayedCall(650, () => {
-            this.canDash = true;
-        });
-    }
-
     update() {
-        if (!this.cursors || !this.canMove) return;
-
-        const body = this.player.body as Phaser.Physics.Arcade.Body;
+        if (!this.canMove) return;
         
-        // If dashing, ignore other inputs and let physics run
-        if (this.isDashing) {
-            return;
-        }
+        // Delegate updates to player entity
+        this.player.update();
 
-        const speed = 300;
-        const jumpStrength = -850;
-        const jumpCut = 0.5; // Multiplier to cut velocity when releasing button
+        // Camera Look Logic (Up/Down) - Kept in Scene because it controls Camera
+        // Although Player could have an 'isLookingUp' state, controlling camera is scene responsibility?
+        // Let's refactor controls slightly: Player owns its movement, Scene owns camera.
+        // But Player has the cursors... 
+        // For now, let's keep Camera Look here, reading the same cursors.
+        
         const maxLookOffset = 150;
-
-        // Ground Check for Double Jump Reset
-        if (body.touching.down) {
-            this.canDoubleJump = true;
-            this.canDash = true; 
-        }
-
-        // Horizontal Movement
-        if (this.cursors.left.isDown) {
-            body.setVelocityX(-speed);
-            this.lastFacing = 'left';
-        } else if (this.cursors.right.isDown) {
-            body.setVelocityX(speed);
-            this.lastFacing = 'right';
-        }
-
-        // Dash Input
-        if (Phaser.Input.Keyboard.JustDown(this.cursors.shift) && this.canDash) {
-            this.startDash(body);
-            return; // Skip rest of update frame
-        }
-
-        // Variable Jump Logic
-        // 1. Start Jump
-        if (Phaser.Input.Keyboard.JustDown(this.cursors.space)) {
-            if (body.touching.down) {
-                body.setVelocityY(jumpStrength);
-            } else if (this.canDoubleJump) {
-                body.setVelocityY(-600); // Double Jump
-                this.canDoubleJump = false;
-            }
-        }
-
-        // 2. Cut Jump (Variable Height)
-        if (Phaser.Input.Keyboard.JustUp(this.cursors.space)) {
-            if (body.velocity.y < 0) {
-                body.setVelocityY(body.velocity.y * jumpCut);
-            }
-        }
-
-        // Camera Look Logic (Up/Down)
         let targetOffsetY = 0;
 
         if (this.cursors.down.isDown) {
-            // Look Up -> moves camera up (which means offset y increases in negative? No, follow offset behaves inversely usually, let's test)
-            // Actually, setFollowOffset(x, y): "The amount to offset the focus position by."
-            // If we want to see UP, we need the camera to move UP relative to player.
-            // Camera Y = Player Y + Offset Y. 
-            // So to look UP (camera moves up), Offset Y should be NEGATIVE.
-            targetOffsetY = -maxLookOffset;
-        } else if (this.cursors.up.isDown) {
-            // Look Down
             targetOffsetY = maxLookOffset;
+        } else if (this.cursors.up.isDown) {
+            targetOffsetY = -maxLookOffset;
         }
 
         // Smoothly interpolate current offset to target
         const currentOffsetY = this.camera.followOffset.y;
-        const lerpedOffset = Phaser.Math.Linear(currentOffsetY, targetOffsetY, 0.05); // 0.05 = smooth speed
-
+        const lerpedOffset = Phaser.Math.Linear(currentOffsetY, targetOffsetY, 0.05); 
         this.camera.setFollowOffset(0, lerpedOffset);
     }
 }
