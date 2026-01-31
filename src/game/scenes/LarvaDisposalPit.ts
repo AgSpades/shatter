@@ -2,7 +2,7 @@ import { Scene } from 'phaser';
 
 export class LarvaDisposalPit extends Scene {
     camera: Phaser.Cameras.Scene2D.Camera;
-    player: Phaser.Types.Physics.Arcade.GameObjectWithBody;
+    player: Phaser.Physics.Arcade.Sprite;
     cursors: Phaser.Types.Input.Keyboard.CursorKeys;
     narrativeText: Phaser.GameObjects.Text;
     platforms: Phaser.Physics.Arcade.StaticGroup;
@@ -54,13 +54,14 @@ export class LarvaDisposalPit extends Scene {
         // --- Player (The Shell) ---
         // Spawn at bottom
         const playerSprite = this.add.sprite(768, 1900, 'sprite1');
-        playerSprite.setDisplaySize(32, 48);
+        playerSprite.setDisplaySize(100, 100);
         this.physics.add.existing(playerSprite);
-        this.player = playerSprite as Phaser.Types.Physics.Arcade.GameObjectWithBody;
+        this.player = playerSprite as Phaser.Physics.Arcade.Sprite;
 
         // Physics properties
         const body = this.player.body as Phaser.Physics.Arcade.Body;
-        body.setSize(32, 48);
+        body.setSize(400, 200); // Slimmer and shorter collision box
+        body.setOffset(200, 550); // Centered horizontally (900-400)/2 and shifted to bottom (900-200)
         body.setDragX(1200);
         body.setMaxVelocity(400, 1000);
         body.setCollideWorldBounds(true);
@@ -156,7 +157,7 @@ export class LarvaDisposalPit extends Scene {
         this.camera.setFollowOffset(0, lerpedOffset);
 
         // Keep text above player
-        this.narrativeText.x = body.x + 16;
-        this.narrativeText.y = body.y - 40;
+        this.narrativeText.x = this.player.x;
+        this.narrativeText.y = this.player.y - 60;
     }
 }
