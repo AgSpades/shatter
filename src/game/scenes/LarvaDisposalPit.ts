@@ -2,7 +2,7 @@ import { Scene } from 'phaser';
 
 export class LarvaDisposalPit extends Scene {
     camera: Phaser.Cameras.Scene2D.Camera;
-    player: Phaser.Types.Physics.Arcade.GameObjectWithBody;
+    player: Phaser.Physics.Arcade.Sprite;
     cursors: Phaser.Types.Input.Keyboard.CursorKeys;
     narrativeText: Phaser.GameObjects.Text;
     platforms: Phaser.Physics.Arcade.StaticGroup;
@@ -57,13 +57,16 @@ export class LarvaDisposalPit extends Scene {
 
         // --- Player (The Shell) ---
         // Spawn at bottom
-        const playerRect = this.add.rectangle(768, 1900, 32, 48, 0xE6E0D4);
-        this.physics.add.existing(playerRect);
-        this.player = playerRect as Phaser.Types.Physics.Arcade.GameObjectWithBody;
-        
+        const playerSprite = this.add.sprite(768, 1900, 'sprite1');
+        playerSprite.setDisplaySize(100, 100);
+        this.physics.add.existing(playerSprite);
+        this.player = playerSprite as Phaser.Physics.Arcade.Sprite;
+
         // Physics properties
         const body = this.player.body as Phaser.Physics.Arcade.Body;
-        body.setDragX(1200); 
+        body.setSize(250, 150); // Smaller collision box
+        body.setOffset(350, 600); // Centered and at the bottom
+        body.setDragX(1200);
         body.setMaxVelocity(400, 1000);
         body.setCollideWorldBounds(true);
 
@@ -99,10 +102,10 @@ export class LarvaDisposalPit extends Scene {
             color: '#ffffff',
             align: 'center'
         })
-        .setOrigin(0.5)
-        .setScrollFactor(0) // Fixed to center of screen
-        .setDepth(101) // Above curtain
-        .setAlpha(0);
+            .setOrigin(0.5)
+            .setScrollFactor(0) // Fixed to center of screen
+            .setDepth(101) // Above curtain
+            .setAlpha(0);
 
         // 3. Intro Sequence Timeline
         // Hide debug graphics if they exist (to prevent finding them through curtain)
@@ -229,21 +232,21 @@ export class LarvaDisposalPit extends Scene {
             if (body.touching.down) {
                 body.setVelocityY(jumpStrength);
             } else if (this.canDoubleJump) {
-                 body.setVelocityY(-600); // Double Jump
-                 this.canDoubleJump = false;
+                body.setVelocityY(-600); // Double Jump
+                this.canDoubleJump = false;
             }
         }
-        
+
         // 2. Cut Jump (Variable Height)
         if (Phaser.Input.Keyboard.JustUp(this.cursors.space)) {
             if (body.velocity.y < 0) {
-                 body.setVelocityY(body.velocity.y * jumpCut);
+                body.setVelocityY(body.velocity.y * jumpCut);
             }
         }
 
         // Camera Look Logic (Up/Down)
         let targetOffsetY = 0;
-        
+
         if (this.cursors.down.isDown) {
             // Look Up -> moves camera up (which means offset y increases in negative? No, follow offset behaves inversely usually, let's test)
             // Actually, setFollowOffset(x, y): "The amount to offset the focus position by."
@@ -252,18 +255,14 @@ export class LarvaDisposalPit extends Scene {
             // So to look UP (camera moves up), Offset Y should be NEGATIVE.
             targetOffsetY = -maxLookOffset;
         } else if (this.cursors.up.isDown) {
-             // Look Down
+            // Look Down
             targetOffsetY = maxLookOffset;
         }
 
         // Smoothly interpolate current offset to target
         const currentOffsetY = this.camera.followOffset.y;
         const lerpedOffset = Phaser.Math.Linear(currentOffsetY, targetOffsetY, 0.05); // 0.05 = smooth speed
-        
-        this.camera.setFollowOffset(0, lerpedOffset);
 
-        // Keep text above player
-        this.narrativeText.x = body.x + 16;
-        this.narrativeText.y = body.y - 40;
+        this.camera.setFollowOffset(0, lerpedOffset);
     }
 }

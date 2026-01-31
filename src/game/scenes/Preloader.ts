@@ -30,6 +30,7 @@ export class Preloader extends Scene {
         this.load.setPath('assets');
 
         this.load.image('logo', 'shatter_demo.png');
+        this.load.image('sprite1', 'sprites/sprite1.png');
     }
 
     create() {
