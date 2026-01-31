@@ -151,13 +151,13 @@ export class LarvaDisposalPit extends Scene {
         // But Player has the cursors... 
         // For now, let's keep Camera Look here, reading the same cursors.
         
-        const maxLookOffset = 150;
+        const maxLookOffset = 250; // how far the camera looks up or down
         let targetOffsetY = 0;
 
-        if (this.cursors.down.isDown) {
-            targetOffsetY = maxLookOffset;
-        } else if (this.cursors.up.isDown) {
-            targetOffsetY = -maxLookOffset;
+        if (this.cursors.up.isDown) {
+            targetOffsetY = maxLookOffset; // look up on up key
+        } else if (this.cursors.down.isDown) {
+            targetOffsetY = -maxLookOffset; // look down on down key
         }
 
         // Smoothly interpolate current offset to target
