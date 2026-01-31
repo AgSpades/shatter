@@ -61,8 +61,8 @@ export class LarvaDisposalPit extends Scene {
 
         // Physics properties
         const body = this.player.body as Phaser.Physics.Arcade.Body;
-        body.setSize(400, 200); // Slimmer and shorter collision box
-        body.setOffset(200, 550); // Centered horizontally (900-400)/2 and shifted to bottom (900-200)
+        body.setSize(250, 150); // Smaller collision box
+        body.setOffset(350, 600); // Centered and at the bottom
         body.setDragX(1200);
         body.setMaxVelocity(400, 1000);
         body.setCollideWorldBounds(true);
@@ -99,10 +99,10 @@ export class LarvaDisposalPit extends Scene {
             color: '#ffffff',
             align: 'center'
         })
-        .setOrigin(0.5)
-        .setScrollFactor(0) // Fixed to center of screen
-        .setDepth(101) // Above curtain
-        .setAlpha(0);
+            .setOrigin(0.5)
+            .setScrollFactor(0) // Fixed to center of screen
+            .setDepth(101) // Above curtain
+            .setAlpha(0);
 
         // 3. Intro Sequence Timeline
         // Hide debug graphics if they exist (to prevent finding them through curtain)
@@ -178,8 +178,8 @@ export class LarvaDisposalPit extends Scene {
             if (body.touching.down) {
                 body.setVelocityY(jumpStrength);
             } else if (this.canDoubleJump) {
-                 body.setVelocityY(-600); // Double Jump
-                 this.canDoubleJump = false;
+                body.setVelocityY(-600); // Double Jump
+                this.canDoubleJump = false;
             }
         }
 
@@ -210,9 +210,5 @@ export class LarvaDisposalPit extends Scene {
         const lerpedOffset = Phaser.Math.Linear(currentOffsetY, targetOffsetY, 0.05); // 0.05 = smooth speed
 
         this.camera.setFollowOffset(0, lerpedOffset);
-
-        // Keep text above player
-        this.narrativeText.x = this.player.x;
-        this.narrativeText.y = this.player.y - 60;
     }
 }
