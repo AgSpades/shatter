@@ -64,8 +64,23 @@ export class LarvaDisposalPit extends Scene {
 
         // Physics properties
         const body = this.player.body as Phaser.Physics.Arcade.Body;
-        body.setSize(250, 150); // Smaller collision box
-        body.setOffset(350, 600); // Centered and at the bottom
+        
+        // Sprite texture bounds adjustment
+        // Box Width: 40% of texture
+        // Box Height: 60% of texture (Shorter to avoid empty space at bottom)
+        const width = this.player.width * 0.4;
+        const height = this.player.height * 0.6;
+        
+        body.setSize(width, height); 
+        
+        // Offset Calculation:
+        // X: Centered
+        // Y: Positioned to leave ~15% padding at the bottom (assuming feet are there)
+        const offsetX = (this.player.width - width) / 2;
+        const offsetY = this.player.height - height - (this.player.height * 0.15); // Move UP by 15% of height
+        
+        body.setOffset(offsetX, offsetY);
+        
         body.setDragX(1200);
         body.setMaxVelocity(400, 1000);
         body.setCollideWorldBounds(true);
