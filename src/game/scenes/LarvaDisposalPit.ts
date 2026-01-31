@@ -7,6 +7,7 @@ export class LarvaDisposalPit extends Scene {
     narrativeText: Phaser.GameObjects.Text;
     platforms: Phaser.Physics.Arcade.StaticGroup;
     private canMove: boolean = false;
+    private canDoubleJump: boolean = false;
 
     constructor() {
         super('LarvaDisposalPit');
@@ -40,7 +41,7 @@ export class LarvaDisposalPit extends Scene {
 
         // 3. The Red Zone (Hazard Area - Middle layer)
         // Visual Warning
-        const hazardZone = this.add.rectangle(1000, 1100, 2000, 400, 0x8B1E1E, 0.2); // Red overlay
+        this.add.rectangle(1000, 1100, 2000, 400, 0x8B1E1E, 0.2); // Red overlay
         // Platforms inside hazard
         addPlatform(600, 1200, 150, 30, 0x5e2a2a); // Darker red-tinted plat
         addPlatform(1000, 1100, 100, 30, 0x5e2a2a); // Tiny platform
@@ -48,7 +49,7 @@ export class LarvaDisposalPit extends Scene {
 
         // 4. The Safe Zone (Top)
         // Visual Safe glow
-        const safeZone = this.add.circle(1800, 200, 300, 0xC9A24D, 0.1); // Amber glow
+        this.add.circle(1800, 200, 300, 0xC9A24D, 0.1); // Amber glow
         addPlatform(1600, 600, 800, 50, 0xC9A24D); // Safe ledge
 
         // --- Player (The Shell) ---
@@ -80,27 +81,71 @@ export class LarvaDisposalPit extends Scene {
             this.cursors = this.input.keyboard.createCursorKeys();
         }
 
-        // --- Narrative Beat ---
+        // --- Narrative Beat & Intro Sequence ---
+        // 1. Black Curtain (Covers screen)
+        const curtain = this.add.rectangle(0, 0, 20000, 20000, 0x000000)
+            .setOrigin(0.5)
+            .setScrollFactor(0) // Fixed to camera
+            .setDepth(100); // Top layer
+
+        // 2. Narrative Text (On top of curtain)
         // "Darkness... The Shell is... cracked."
-        this.narrativeText = this.add.text(768, 1800, "Darkness... The Shell is... cracked.", {
+        this.narrativeText = this.add.text(this.scale.width / 2, this.scale.height / 2, "Darkness... The Shell is... cracked.", {
             fontFamily: 'Courier',
-            fontSize: '16px',
+            fontSize: '20px',
             color: '#ffffff',
             align: 'center'
-        }).setOrigin(0.5);
+        })
+        .setOrigin(0.5)
+        .setScrollFactor(0) // Fixed to center of screen
+        .setDepth(101) // Above curtain
+        .setAlpha(0);
 
-        this.narrativeText.setAlpha(0);
-        this.tweens.add({
-            targets: this.narrativeText,
-            alpha: 1,
-            duration: 2000,
-            ease: 'Power2',
-            yoyo: true,
-            hold: 3000,
-            onComplete: () => {
-                this.canMove = true;
+        // 3. Intro Sequence Timeline
+        // Hide debug graphics if they exist (to prevent finding them through curtain)
+        if (this.physics.world.debugGraphic) {
+            this.physics.world.debugGraphic.setVisible(false);
+        }
+
+        const timeline = this.add.timeline([
+            {
+                at: 500,
+                tween: {
+                    targets: this.narrativeText,
+                    alpha: 1,
+                    duration: 2000,
+                    ease: 'Power2'
+                }
+            },
+            {
+                at: 3500, // Hold for a bit
+                tween: {
+                    targets: this.narrativeText,
+                    alpha: 0,
+                    duration: 1500,
+                    ease: 'Power2'
+                }
+            },
+            {
+                at: 4800, // Start slightly before text is fully gone for smoother flow
+                tween: {
+                    targets: curtain,
+                    y: -1500, // Slide up off screen
+                    duration: 2500,
+                    ease: 'Quad.easeInOut',
+                    onComplete: () => {
+                        this.canMove = true;
+                        curtain.destroy(); // Cleanup
+                        // Re-enable debug graphics
+                        if (this.physics.world.debugGraphic) {
+                            this.physics.world.debugGraphic.setVisible(true);
+                        }
+                    }
+                }
             }
-        });
+        ]);
+
+        timeline.play();
     }
 
     update() {
@@ -112,6 +157,11 @@ export class LarvaDisposalPit extends Scene {
         const jumpCut = 0.5; // Multiplier to cut velocity when releasing button
         const maxLookOffset = 150;
 
+        // Ground Check for Double Jump Reset
+        if (body.touching.down) {
+            this.canDoubleJump = true;
+        }
+
         // Horizontal Movement
         if (this.cursors.left.isDown) {
             body.setVelocityX(-speed);
@@ -121,8 +171,13 @@ export class LarvaDisposalPit extends Scene {
 
         // Variable Jump Logic
         // 1. Start Jump
-        if (Phaser.Input.Keyboard.JustDown(this.cursors.space) && body.touching.down) {
-            body.setVelocityY(jumpStrength);
+        if (Phaser.Input.Keyboard.JustDown(this.cursors.space)) {
+            if (body.touching.down) {
+                body.setVelocityY(jumpStrength);
+            } else if (this.canDoubleJump) {
+                 body.setVelocityY(-600); // Double Jump
+                 this.canDoubleJump = false;
+            }
         }
         
         // 2. Cut Jump (Variable Height)
