@@ -40,7 +40,7 @@ export class LarvaDisposalPit extends Scene {
 
         // 3. The Red Zone (Hazard Area - Middle layer)
         // Visual Warning
-        const hazardZone = this.add.rectangle(1000, 1100, 2000, 400, 0x8B1E1E, 0.2); // Red overlay
+        this.add.rectangle(1000, 1100, 2000, 400, 0x8B1E1E, 0.2); // Red overlay
         // Platforms inside hazard
         addPlatform(600, 1200, 150, 30, 0x5e2a2a); // Darker red-tinted plat
         addPlatform(1000, 1100, 100, 30, 0x5e2a2a); // Tiny platform
@@ -48,18 +48,20 @@ export class LarvaDisposalPit extends Scene {
 
         // 4. The Safe Zone (Top)
         // Visual Safe glow
-        const safeZone = this.add.circle(1800, 200, 300, 0xC9A24D, 0.1); // Amber glow
+        this.add.circle(1800, 200, 300, 0xC9A24D, 0.1); // Amber glow
         addPlatform(1600, 600, 800, 50, 0xC9A24D); // Safe ledge
 
         // --- Player (The Shell) ---
         // Spawn at bottom
-        const playerRect = this.add.rectangle(768, 1900, 32, 48, 0xE6E0D4);
-        this.physics.add.existing(playerRect);
-        this.player = playerRect as Phaser.Types.Physics.Arcade.GameObjectWithBody;
-        
+        const playerSprite = this.add.sprite(768, 1900, 'sprite1');
+        playerSprite.setDisplaySize(32, 48);
+        this.physics.add.existing(playerSprite);
+        this.player = playerSprite as Phaser.Types.Physics.Arcade.GameObjectWithBody;
+
         // Physics properties
         const body = this.player.body as Phaser.Physics.Arcade.Body;
-        body.setDragX(1200); 
+        body.setSize(32, 48);
+        body.setDragX(1200);
         body.setMaxVelocity(400, 1000);
         body.setCollideWorldBounds(true);
 
@@ -124,17 +126,17 @@ export class LarvaDisposalPit extends Scene {
         if (Phaser.Input.Keyboard.JustDown(this.cursors.space) && body.touching.down) {
             body.setVelocityY(jumpStrength);
         }
-        
+
         // 2. Cut Jump (Variable Height)
         if (Phaser.Input.Keyboard.JustUp(this.cursors.space)) {
             if (body.velocity.y < 0) {
-                 body.setVelocityY(body.velocity.y * jumpCut);
+                body.setVelocityY(body.velocity.y * jumpCut);
             }
         }
 
         // Camera Look Logic (Up/Down)
         let targetOffsetY = 0;
-        
+
         if (this.cursors.down.isDown) {
             // Look Up -> moves camera up (which means offset y increases in negative? No, follow offset behaves inversely usually, let's test)
             // Actually, setFollowOffset(x, y): "The amount to offset the focus position by."
@@ -143,14 +145,14 @@ export class LarvaDisposalPit extends Scene {
             // So to look UP (camera moves up), Offset Y should be NEGATIVE.
             targetOffsetY = -maxLookOffset;
         } else if (this.cursors.up.isDown) {
-             // Look Down
+            // Look Down
             targetOffsetY = maxLookOffset;
         }
 
         // Smoothly interpolate current offset to target
         const currentOffsetY = this.camera.followOffset.y;
         const lerpedOffset = Phaser.Math.Linear(currentOffsetY, targetOffsetY, 0.05); // 0.05 = smooth speed
-        
+
         this.camera.setFollowOffset(0, lerpedOffset);
 
         // Keep text above player
