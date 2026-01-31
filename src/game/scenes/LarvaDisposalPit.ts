@@ -8,6 +8,9 @@ export class LarvaDisposalPit extends Scene {
     platforms: Phaser.Physics.Arcade.StaticGroup;
     private canMove: boolean = false;
     private canDoubleJump: boolean = false;
+    private isDashing: boolean = false;
+    private canDash: boolean = true;
+    private lastFacing: 'left' | 'right' = 'right';
 
     constructor() {
         super('LarvaDisposalPit');
@@ -151,10 +154,52 @@ export class LarvaDisposalPit extends Scene {
         timeline.play();
     }
 
+    private startDash(body: Phaser.Physics.Arcade.Body) {
+        this.isDashing = true;
+        this.canDash = false;
+        
+        // Physics alterations for dash
+        body.allowGravity = false;
+        const originalDrag = body.drag.x;
+        const originalMaxVelX = body.maxVelocity.x; // Store original max velocity
+        
+        body.setDragX(0); 
+        body.setMaxVelocity(10000, body.maxVelocity.y); // Uncap X velocity safely
+        
+        // Dash Velocity
+        const dashSpeed = 800; // @note dash speed controls
+        const direction = this.lastFacing === 'left' ? -1 : 1;
+        
+        body.setVelocityX(dashSpeed * direction);
+        body.setVelocityY(0);
+
+        // Stop Dash Event
+        this.time.delayedCall(200, () => { // Increased duration slightly (150 -> 200)
+            this.isDashing = false;
+            body.allowGravity = true;
+            body.setDragX(originalDrag);
+            body.setMaxVelocity(originalMaxVelX, body.maxVelocity.y); // Restore Max Velocity cap
+            
+            // Dampen velocity so player slows down naturally
+            body.setVelocityX(body.velocity.x * 0.2);
+        });
+
+        // Cooldown Event
+        this.time.delayedCall(650, () => {
+            this.canDash = true;
+        });
+    }
+
     update() {
         if (!this.cursors || !this.canMove) return;
 
         const body = this.player.body as Phaser.Physics.Arcade.Body;
+        
+        // If dashing, ignore other inputs and let physics run
+        if (this.isDashing) {
+            return;
+        }
+
         const speed = 300;
         const jumpStrength = -850;
         const jumpCut = 0.5; // Multiplier to cut velocity when releasing button
@@ -163,13 +208,22 @@ export class LarvaDisposalPit extends Scene {
         // Ground Check for Double Jump Reset
         if (body.touching.down) {
             this.canDoubleJump = true;
+            this.canDash = true; 
         }
 
         // Horizontal Movement
         if (this.cursors.left.isDown) {
             body.setVelocityX(-speed);
+            this.lastFacing = 'left';
         } else if (this.cursors.right.isDown) {
             body.setVelocityX(speed);
+            this.lastFacing = 'right';
+        }
+
+        // Dash Input
+        if (Phaser.Input.Keyboard.JustDown(this.cursors.shift) && this.canDash) {
+            this.startDash(body);
+            return; // Skip rest of update frame
         }
 
         // Variable Jump Logic
