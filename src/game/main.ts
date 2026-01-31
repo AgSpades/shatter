@@ -20,6 +20,13 @@ const config: Phaser.Types.Core.GameConfig = {
         width: '100%',
         height: '100%'
     },
+    physics: {
+        default: 'arcade',
+        arcade: {
+            gravity: { x: 0, y: 1500 }, // High gravity for weighty feel
+            debug: true
+        }
+    },
     scene: [
         Boot,
         Preloader,
