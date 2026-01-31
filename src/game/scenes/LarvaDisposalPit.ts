@@ -5,7 +5,7 @@ export class LarvaDisposalPit extends Scene {
     player: Phaser.Types.Physics.Arcade.GameObjectWithBody;
     cursors: Phaser.Types.Input.Keyboard.CursorKeys;
     narrativeText: Phaser.GameObjects.Text;
-    floor: Phaser.GameObjects.Rectangle;
+    platforms: Phaser.Physics.Arcade.StaticGroup;
     private canMove: boolean = false;
 
     constructor() {
@@ -16,35 +16,62 @@ export class LarvaDisposalPit extends Scene {
         // --- Visuals & Environment ---
         this.cameras.main.setBackgroundColor('#1a1a1d');
 
-        // Environment - The Pit Floor (Static Physics Object)
-        // Move to bottom of 2000px world
-        this.floor = this.add.rectangle(0, 1950, 2000, 50, 0x4F6B57).setOrigin(0, 0); 
-        this.physics.add.existing(this.floor, true); // true = static body
+        // --- Level Layout (The Underhive Ascent) ---
+        this.platforms = this.physics.add.staticGroup();
+
+        // 1. The Pit Floor (Start)
+        this.platforms.create(1000, 1975, 'ground').setSize(2000, 50).setVisible(false); // Invisible physics body if we want custom graphics, or just use Rects
+        // Actually, let's use Add.Rectangle and add to group for visible protoyping
+        const addPlatform = (x: number, y: number, w: number, h: number, color: number = 0x4F6B57) => {
+            const plat = this.add.rectangle(x, y, w, h, color);
+            this.physics.add.existing(plat, true);
+            this.platforms.add(plat);
+            return plat;
+        };
+
+        // Pit Floor
+        addPlatform(1000, 1975, 2000, 50);
+
+        // 2. The Ascent (Platforms)
+        addPlatform(1200, 1800, 300, 30); // First hop
+        addPlatform(800, 1650, 200, 30);
+        addPlatform(400, 1500, 150, 30);  // Narrow jump
+        addPlatform(100, 1350, 200, 30);  // Wall hug
+
+        // 3. The Red Zone (Hazard Area - Middle layer)
+        // Visual Warning
+        const hazardZone = this.add.rectangle(1000, 1100, 2000, 400, 0x8B1E1E, 0.2); // Red overlay
+        // Platforms inside hazard
+        addPlatform(600, 1200, 150, 30, 0x5e2a2a); // Darker red-tinted plat
+        addPlatform(1000, 1100, 100, 30, 0x5e2a2a); // Tiny platform
+        addPlatform(1400, 1000, 150, 30, 0x5e2a2a);
+
+        // 4. The Safe Zone (Top)
+        // Visual Safe glow
+        const safeZone = this.add.circle(1800, 200, 300, 0xC9A24D, 0.1); // Amber glow
+        addPlatform(1600, 600, 800, 50, 0xC9A24D); // Safe ledge
 
         // --- Player (The Shell) ---
-        // Create visual rectangle - Start near bottom
-        const playerRect = this.add.rectangle(768, 1850, 32, 48, 0xE6E0D4);
-        // Add physics to it
+        // Spawn at bottom
+        const playerRect = this.add.rectangle(768, 1900, 32, 48, 0xE6E0D4);
         this.physics.add.existing(playerRect);
         this.player = playerRect as Phaser.Types.Physics.Arcade.GameObjectWithBody;
         
-        // Physics properties for "Weighty" feel
+        // Physics properties
         const body = this.player.body as Phaser.Physics.Arcade.Body;
-        // High drag to stop quickly (snappy)
         body.setDragX(1200); 
-        // Cap max velocity so you don't fly off screen
         body.setMaxVelocity(400, 1000);
         body.setCollideWorldBounds(true);
 
-        // Resize world world bounds to stop falling forever if missed platform (though floor is static)
-        this.physics.world.setBounds(0, 0, 3000, 2000);
+        // World Bounds
+        this.physics.world.setBounds(0, 0, 2000, 2000);
 
         // Colliders
-        this.physics.add.collider(this.player, this.floor);
+        this.physics.add.collider(this.player, this.platforms);
 
         // --- Camera Framing ---
         this.camera = this.cameras.main;
-        this.camera.setZoom(2.0);
+        this.camera.setZoom(1.5); // Zoom out a bit to see more of the level
         this.camera.startFollow(this.player, true, 0.1, 0.1);
         this.camera.setBounds(0, 0, 2000, 2000);
 
@@ -81,7 +108,7 @@ export class LarvaDisposalPit extends Scene {
 
         const body = this.player.body as Phaser.Physics.Arcade.Body;
         const speed = 300;
-        const jumpStrength = -650;
+        const jumpStrength = -850;
         const jumpCut = 0.5; // Multiplier to cut velocity when releasing button
         const maxLookOffset = 150;
 
@@ -108,14 +135,14 @@ export class LarvaDisposalPit extends Scene {
         // Camera Look Logic (Up/Down)
         let targetOffsetY = 0;
         
-        if (this.cursors.up.isDown) {
+        if (this.cursors.down.isDown) {
             // Look Up -> moves camera up (which means offset y increases in negative? No, follow offset behaves inversely usually, let's test)
             // Actually, setFollowOffset(x, y): "The amount to offset the focus position by."
             // If we want to see UP, we need the camera to move UP relative to player.
             // Camera Y = Player Y + Offset Y. 
             // So to look UP (camera moves up), Offset Y should be NEGATIVE.
             targetOffsetY = -maxLookOffset;
-        } else if (this.cursors.down.isDown) {
+        } else if (this.cursors.up.isDown) {
              // Look Down
             targetOffsetY = maxLookOffset;
         }
