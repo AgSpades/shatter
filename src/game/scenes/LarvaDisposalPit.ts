@@ -355,10 +355,10 @@ export class LarvaDisposalPit extends Scene {
         const worldWidth = this.GRID_W * this.TILE_SIZE; // 1920
         const worldHeight = this.GRID_H * this.TILE_SIZE; // 5120
 
-        // Set camera background color as fallback
-        this.cameras.main.setBackgroundColor('#0a0a0a');
+        // Set camera background color - brighter for better visibility
+        this.cameras.main.setBackgroundColor('#2a2a2d');
 
-        // Create parallax background layers (back to front)
+        // Create parallax background layers (back to front) with increased brightness
         // Make them large enough to cover the entire world
         const bgWidth = worldWidth * 3;
         const bgHeight = worldHeight * 3;
@@ -366,18 +366,22 @@ export class LarvaDisposalPit extends Scene {
         this.parallaxBg = this.add.tileSprite(worldWidth / 2, worldHeight / 2, bgWidth, bgHeight, 'parallax-bg');
         this.parallaxBg.setScrollFactor(0.1, 0.1);
         this.parallaxBg.setDepth(-4);
+        this.parallaxBg.setAlpha(1.2); // Increase brightness
 
         this.parallaxFarTrees = this.add.tileSprite(worldWidth / 2, worldHeight / 2, bgWidth, bgHeight, 'parallax-far-trees');
         this.parallaxFarTrees.setScrollFactor(0.3, 0.3);
         this.parallaxFarTrees.setDepth(-3);
+        this.parallaxFarTrees.setAlpha(1.2); // Increase brightness
 
         this.parallaxMidTrees = this.add.tileSprite(worldWidth / 2, worldHeight / 2, bgWidth, bgHeight, 'parallax-mid-trees');
         this.parallaxMidTrees.setScrollFactor(0.5, 0.5);
         this.parallaxMidTrees.setDepth(-2);
+        this.parallaxMidTrees.setAlpha(1.2); // Increase brightness
 
         this.parallaxCloseTrees = this.add.tileSprite(worldWidth / 2, worldHeight / 2, bgWidth, bgHeight, 'parallax-close-trees');
         this.parallaxCloseTrees.setScrollFactor(0.7, 0.7);
         this.parallaxCloseTrees.setDepth(-1);
+        this.parallaxCloseTrees.setAlpha(1.2); // Increase brightness
 
         this.platforms = this.physics.add.staticGroup();
         this.hazards = this.add.group();
@@ -411,8 +415,8 @@ export class LarvaDisposalPit extends Scene {
             }
         });
 
-        // Create darkness overlay that transitions from dark (bottom) to light (top)
-        this.darknessOverlay = this.add.rectangle(worldWidth / 2, worldHeight / 2, worldWidth, worldHeight, 0x000000, 0.7);
+        // Create darkness overlay with reduced opacity for better visibility
+        this.darknessOverlay = this.add.rectangle(worldWidth / 2, worldHeight / 2, worldWidth, worldHeight, 0x000000, 0.4);
         this.darknessOverlay.setScrollFactor(0);
         this.darknessOverlay.setDepth(150);
 
@@ -1096,8 +1100,8 @@ export class LarvaDisposalPit extends Scene {
             const worldHeight = this.GRID_H * this.TILE_SIZE;
             const progress = 1 - (this.player.y / worldHeight); // 0 at bottom, 1 at top
 
-            // Darkness fades from 0.7 (dark) at bottom to 0 (light) at top
-            const darknessAlpha = Math.max(0, 0.7 - (progress * 0.7));
+            // Darkness fades from 0.4 (less dark) at bottom to 0 (light) at top - improved brightness
+            const darknessAlpha = Math.max(0, 0.4 - (progress * 0.4));
             this.darknessOverlay.setAlpha(darknessAlpha);
         }
 

@@ -25,7 +25,7 @@ const config: Phaser.Types.Core.GameConfig = {
         default: 'arcade',
         arcade: {
             gravity: { x: 0, y: 1500 }, // High gravity for weighty feel
-            debug: true
+            debug: false
         }
     },
     scene: [

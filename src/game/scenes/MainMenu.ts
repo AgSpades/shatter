@@ -29,21 +29,25 @@ export class MainMenu extends Scene {
     create() {
         const { width, height } = this.scale;
 
-        // Create parallax background layers (back to front)
+        // Create parallax background layers (back to front) with increased brightness
         this.parallaxBg = this.add.tileSprite(width / 2, height / 2, width, height, 'parallax-bg');
         this.parallaxBg.setDisplaySize(width, height);
+        this.parallaxBg.setAlpha(1.3); // Increase brightness
 
         this.parallaxFarTrees = this.add.tileSprite(width / 2, height / 2, width, height, 'parallax-far-trees');
         this.parallaxFarTrees.setDisplaySize(width, height);
+        this.parallaxFarTrees.setAlpha(1.3); // Increase brightness
 
         this.parallaxMidTrees = this.add.tileSprite(width / 2, height / 2, width, height, 'parallax-mid-trees');
         this.parallaxMidTrees.setDisplaySize(width, height);
+        this.parallaxMidTrees.setAlpha(1.3); // Increase brightness
 
         this.parallaxCloseTrees = this.add.tileSprite(width / 2, height / 2, width, height, 'parallax-close-trees');
         this.parallaxCloseTrees.setDisplaySize(width, height);
+        this.parallaxCloseTrees.setAlpha(1.3); // Increase brightness
 
-        // Add dark overlay for better text contrast
-        this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.4);
+        // Add lighter overlay for better text contrast while maintaining brightness
+        this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.2);
 
         this.logo = this.add.image(width / 2, height / 2 - 160, 'logo');
 

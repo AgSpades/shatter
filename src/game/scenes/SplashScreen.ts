@@ -1,25 +1,22 @@
 import { Scene } from 'phaser';
 
-export class SplashScreen extends Scene
-{
-    constructor()
-    {
+export class SplashScreen extends Scene {
+    constructor() {
         super('SplashScreen');
     }
 
-    create()
-    {
+    create() {
         const { width, height } = this.cameras.main;
 
-        // Black background
-        this.cameras.main.setBackgroundColor(0x000000);
+        // Dark gray background for better visibility (not pure black)
+        this.cameras.main.setBackgroundColor(0x1a1a1d);
 
         // Add logo centered
         const logo = this.add.image(width / 2, height / 2, 'berry-logo');
-        
+
         // Scale logo to reasonable size (adjust scale as needed)
         logo.setScale(0.5);
-        
+
         // Start with logo invisible
         logo.setAlpha(0);
 

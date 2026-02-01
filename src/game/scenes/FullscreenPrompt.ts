@@ -14,8 +14,8 @@ export class FullscreenPrompt extends Scene {
         this.storyMusic = this.sound.add('story-music', { loop: true, volume: 0.5 });
         this.storyMusic.play();
 
-        // Background
-        this.add.rectangle(0, 0, width, height, 0x1a1a1d).setOrigin(0);
+        // Background - lighter for better visibility
+        this.add.rectangle(0, 0, width, height, 0x2a2a2d).setOrigin(0);
 
         // Best Experience Text
         this.add.text(width / 2, height / 2 - 50, 'For the best experience, play in full screen.', {
