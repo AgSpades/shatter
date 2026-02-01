@@ -23,22 +23,22 @@ class SmartEnforcer extends Enforcer {
         const axis = isHorizontal ? 'x' : 'y';
 
         super(scene, x, y, range, axis);
-        
+
         this.scene = scene;
         this.currentAxis = axis;
         this.pathStart = isHorizontal ? x : y;
         this.pathEnd = isHorizontal ? endX : endY;
         this.waitTime = waitDuration * 1000;
         this.moveDirection = (this.pathEnd >= this.pathStart) ? 1 : -1;
-        
+
         // Create detection indicator
         this.detectionIndicator = scene.add.text(0, 0, '!', {
             fontSize: '32px',
             color: '#ff0000',
             fontStyle: 'bold'
         }).setOrigin(0.5).setVisible(false).setDepth(150);
-        
-        this.setVelocity(0, 0); 
+
+        this.setVelocity(0, 0);
         this.startMoving();
     }
 
@@ -73,35 +73,35 @@ class SmartEnforcer extends Enforcer {
         if (this.player && this.detectionIndicator) {
             const pitScene = this.scene as LarvaDisposalPit;
             let playerInFront = false;
-            
+
             // Check if player is in front based on patrol axis and direction
             if (this.currentAxis === 'x') {
                 // Horizontal patrol
                 const forwardDist = (this.player.x - this.x) * this.moveDirection;
                 const verticalDist = Math.abs(this.player.y - this.y);
-                
+
                 // Player must be ahead (forwardDist > 0) within detection range
                 // Allow some vertical tolerance (128px = 2 tiles)
-                playerInFront = forwardDist > 0 && 
-                               forwardDist < this.detectionRadius && 
-                               verticalDist < 128;
+                playerInFront = forwardDist > 0 &&
+                    forwardDist < this.detectionRadius &&
+                    verticalDist < 128;
             } else {
                 // Vertical patrol
                 const forwardDist = (this.player.y - this.y) * this.moveDirection;
                 const horizontalDist = Math.abs(this.player.x - this.x);
-                
+
                 // Player must be ahead within detection range
                 // Allow some horizontal tolerance (128px = 2 tiles)
-                playerInFront = forwardDist > 0 && 
-                               forwardDist < this.detectionRadius && 
-                               horizontalDist < 128;
+                playerInFront = forwardDist > 0 &&
+                    forwardDist < this.detectionRadius &&
+                    horizontalDist < 128;
             }
-            
+
             if (playerInFront && !pitScene.isPlayerInShadow) {
                 // Player detected!
                 this.detectionIndicator.setPosition(this.x, this.y - 50);
                 this.detectionIndicator.setVisible(true);
-                
+
                 // Trigger damage after brief indicator flash
                 if (!pitScene.isPlayerDetected) {
                     pitScene.isPlayerDetected = true;
@@ -119,7 +119,7 @@ class SmartEnforcer extends Enforcer {
     stopAndTurn() {
         this.setVelocity(0, 0);
         this.isWaiting = true;
-        
+
         if (this.scene) {
             this.scene.time.delayedCall(this.waitTime, () => {
                 if (!this.scene) return;
@@ -144,12 +144,12 @@ class TimedHazard {
     offDuration: number;
     timer: Phaser.Time.TimerEvent;
     isActive: boolean = true;
-    
+
     constructor(scene: Scene, x: number, y: number, w: number, h: number, onTime: number, offTime: number, startDelay: number = 0) {
         this.hazard = new Hazard(scene, x, y, w, h);
         this.onDuration = onTime * 1000;
         this.offDuration = offTime * 1000;
-        
+
         // Initial state logic
         if (startDelay > 0) {
             this.setActiveState(false);
@@ -199,14 +199,14 @@ class Checkpoint {
         // Outer glow
         this.glow = scene.add.circle(x, y, 35, 0x00ff88, 0.3);
         this.glow.setDepth(5);
-        
+
         // Main checkpoint
         this.sprite = scene.add.circle(x, y, 25, 0x00ff88, 0.6);
         this.sprite.setStrokeStyle(3, 0x00ff88);
         this.sprite.setDepth(10);
-        
+
         scene.physics.add.existing(this.sprite, true);
-        
+
         // Pulse animation
         scene.tweens.add({
             targets: [this.sprite, this.glow],
@@ -221,15 +221,15 @@ class Checkpoint {
 
     activate(scene: Scene) {
         if (this.isActivated) return;
-        
+
         this.isActivated = true;
         this.sprite.setFillStyle(0xffffff, 1);
         this.sprite.setStrokeStyle(4, 0xffffff);
         this.glow.setFillStyle(0xffffff, 0.5);
-        
+
         // Flash effect
         scene.cameras.main.flash(200, 0, 255, 136, false);
-        
+
         // Background expanding circle effect
         const flash = scene.add.circle(this.sprite.x, this.sprite.y, 40, 0x00ff88, 0.7);
         flash.setDepth(5);
@@ -254,9 +254,9 @@ class ScoreGem {
             .setDisplaySize(30, 30)
             .setTint(0xffdd00)
             .setDepth(15);
-        
+
         scene.physics.add.existing(this.sprite, true);
-        
+
         // Bob animation
         scene.tweens.add({
             targets: this.sprite,
@@ -266,7 +266,7 @@ class ScoreGem {
             repeat: -1,
             ease: 'Sine.easeInOut'
         });
-        
+
         // Rotate
         scene.tweens.add({
             targets: this.sprite,
@@ -279,9 +279,9 @@ class ScoreGem {
 
     collect(scene: Scene) {
         if (this.collected) return;
-        
+
         this.collected = true;
-        
+
         // Background flash effect
         const flash = scene.add.circle(this.sprite.x, this.sprite.y, 80, 0xffdd00, 0.6);
         flash.setDepth(5);
@@ -293,7 +293,7 @@ class ScoreGem {
             ease: 'Cubic.easeOut',
             onComplete: () => flash.destroy()
         });
-        
+
         this.sprite.destroy();
     }
 }
@@ -304,7 +304,7 @@ export class LarvaDisposalPit extends Scene {
     cursors: Phaser.Types.Input.Keyboard.CursorKeys;
     narrativeText: Phaser.GameObjects.Text;
     platforms: Phaser.Physics.Arcade.StaticGroup;
-    hazards: Phaser.GameObjects.Group; 
+    hazards: Phaser.GameObjects.Group;
     enforcers: Phaser.GameObjects.Group;
     timedHazards: TimedHazard[] = [];
     checkpoints: Checkpoint[] = [];
@@ -324,12 +324,15 @@ export class LarvaDisposalPit extends Scene {
     maxHp: number = 10;
     isInvulnerable: boolean = false;
     private canMove: boolean = false;
+    private healingTimer: number = 0;
+    private readonly HEAL_RATE: number = 0.5; // HP per second when mask is active
+    private readonly HEAL_INTERVAL: number = 1000; // Heal every 1 second
     private isPaused: boolean = false;
     private pauseMenu: Phaser.GameObjects.Container | null = null;
     private pauseMenuOptions: { text: Phaser.GameObjects.Text, action: () => void }[] = [];
     private pauseSelectedIndex: number = 0;
     private escKey: Phaser.Input.Keyboard.Key | null = null;
-    
+
     // Map Config
     private readonly GRID_W = 30;
     private readonly GRID_H = 80;
@@ -387,25 +390,25 @@ export class LarvaDisposalPit extends Scene {
 
         // --- Camera ---
         this.camera = this.cameras.main;
-        this.camera.setZoom(1.0); 
+        this.camera.setZoom(1.0);
         this.camera.startFollow(this.player, true, 0.08, 0.08);
         this.camera.setBounds(0, 0, worldWidth, worldHeight);
 
         // --- Intro ---
         this.setupIntro();
-        
+
         // --- Load Save Data (if any) ---
         const sceneData = this.scene.settings.data as any;
         if (sceneData?.loadSave && sceneData?.saveData) {
             this.loadSaveData(sceneData.saveData);
         }
-        
+
         // --- Collisions ---
         this.physics.add.collider(this.player, this.platforms);
-        
+
         // Hazard overlap
         this.physics.add.overlap(this.player, this.hazards, () => {
-             this.takeDamage(1);
+            this.takeDamage(1);
         });
 
         // Enforcer overlap
@@ -420,12 +423,12 @@ export class LarvaDisposalPit extends Scene {
             this.physics.add.overlap(this.player, checkpoint.sprite, () => {
                 if (!checkpoint.isActivated) {
                     checkpoint.activate(this);
-                    this.lastCheckpoint = { 
-                        x: checkpoint.sprite.x, 
-                        y: checkpoint.sprite.y 
+                    this.lastCheckpoint = {
+                        x: checkpoint.sprite.x,
+                        y: checkpoint.sprite.y
                     };
                 }
-                
+
                 // Heal player if not at full HP
                 if (this.hp < this.maxHp) {
                     this.hp = this.maxHp;
@@ -471,8 +474,8 @@ export class LarvaDisposalPit extends Scene {
             color: '#ff0000',
             fontStyle: 'bold'
         })
-        .setScrollFactor(0)
-        .setDepth(200);
+            .setScrollFactor(0)
+            .setDepth(200);
 
         // Score display
         this.scoreText = this.add.text(20, 50, 'GEMS: 0/0', {
@@ -481,8 +484,8 @@ export class LarvaDisposalPit extends Scene {
             color: '#ffdd00',
             fontStyle: 'bold'
         })
-        .setScrollFactor(0)
-        .setDepth(200);
+            .setScrollFactor(0)
+            .setDepth(200);
 
         // Mask indicator
         this.maskIndicator = this.add.text(20, 80, '', {
@@ -490,8 +493,8 @@ export class LarvaDisposalPit extends Scene {
             fontSize: '16px',
             color: '#888888',
         })
-        .setScrollFactor(0)
-        .setDepth(200);
+            .setScrollFactor(0)
+            .setDepth(200);
     }
 
     private updateScoreText() {
@@ -500,7 +503,7 @@ export class LarvaDisposalPit extends Scene {
 
     private updateHPText() {
         this.hpText.setText(`HP: ${this.hp}/${this.maxHp}`);
-        
+
         // Change color based on HP
         if (this.hp <= 3) {
             this.hpText.setColor('#ff0000');
@@ -513,21 +516,21 @@ export class LarvaDisposalPit extends Scene {
 
     takeDamage(amount: number = 1) {
         if (this.isInvulnerable) return;
-        
+
         this.hp = Math.max(0, this.hp - amount);
         this.updateHPText();
-        
+
         // Flash player red
         this.player.setTint(0xff0000);
         this.time.delayedCall(100, () => this.player.clearTint());
-        
+
         // Screen shake
         this.cameras.main.shake(100, 0.005);
-        
+
         // Brief invulnerability
         this.isInvulnerable = true;
         this.time.delayedCall(500, () => this.isInvulnerable = false);
-        
+
         if (this.hp <= 0) {
             this.handleDeath();
         }
@@ -633,7 +636,7 @@ export class LarvaDisposalPit extends Scene {
             "##############################", // Y=01
             "##############################"  // Y=00
         ];
-        
+
         mapData.forEach((row, rowIndex) => {
             const gridY = 79 - rowIndex;
             // Run-length encoding for horizontal blocks
@@ -669,15 +672,15 @@ export class LarvaDisposalPit extends Scene {
                     // Platform (Thin)
                     const plat = this.platforms.create(pos.x, pos.y - 22, undefined).setSize(this.TILE_SIZE, 20);
                     plat.setDisplaySize(this.TILE_SIZE, 20);
-                    plat.setTint(0x888888); 
+                    plat.setTint(0x888888);
                     plat.refreshBody();
                 } else if (char === '|') {
                     // Structure/Pipe
-                     const grate = this.add.rectangle(pos.x, pos.y, this.TILE_SIZE/2, this.TILE_SIZE, 0x222222);
+                    const grate = this.add.rectangle(pos.x, pos.y, this.TILE_SIZE / 2, this.TILE_SIZE, 0x222222);
                     grate.setStrokeStyle(2, 0x111111);
-                    
+
                     const plat = this.platforms.create(pos.x, pos.y, undefined);
-                    plat.setSize(this.TILE_SIZE, this.TILE_SIZE); 
+                    plat.setSize(this.TILE_SIZE, this.TILE_SIZE);
                     plat.setVisible(false);
                     plat.refreshBody();
                 } else if (char === 'X') {
@@ -687,7 +690,7 @@ export class LarvaDisposalPit extends Scene {
                 } else if (char === 'M') {
                     this.createMask(pos.x, pos.y);
                 } else if (char === 'D') {
-                    this.add.rectangle(pos.x, pos.y + 10, 40, 20, 0x330000).setOrigin(0.5); 
+                    this.add.rectangle(pos.x, pos.y + 10, 40, 20, 0x330000).setOrigin(0.5);
                 } else if (char === 'C') {
                     // Checkpoint marker - handled in createCheckpoints()
                 } else if (char === 'g') {
@@ -764,30 +767,30 @@ export class LarvaDisposalPit extends Scene {
         // Right Edge = (gridX + length) * TILE
         // Width = length * TILE
         // CenterX = Left + Width/2 = (gridX + length/2) * TILE
-        
+
         // However, our gridToWorld includes WORLD HEIGHT inversion math.
         // Y center is same for all in row.
         const centerY = this.gridToWorld(0, gridY).y; // Y is consistent for row
-        
+
         const width = length * this.TILE_SIZE;
         const height = this.TILE_SIZE;
-        
+
         // X calculation in px
         const leftPx = gridX * this.TILE_SIZE;
         const centerX = leftPx + (width / 2);
-        
+
         // Create Physics Body
         // Use a rectangle with specific style
         const plat = this.add.rectangle(centerX, centerY, width, height, 0x111111);
         plat.setStrokeStyle(2, 0x555555); // "Hollow Knight" style dark outline?
-        
+
         this.physics.add.existing(plat, true); // Static
         this.platforms.add(plat);
     }
 
     private createEnemies() {
         // Relocated and optimized patrols for new layout
-        
+
         // Drone 01 (Zone B - Main path) (6, 23) <-> (20, 23)
         const d1Start = this.gridToWorld(6, 23);
         const d1End = this.gridToWorld(20, 23);
@@ -823,7 +826,7 @@ export class LarvaDisposalPit extends Scene {
         const addVent = (gx: number, gy: number, on: number, off: number) => {
             const pos = this.gridToWorld(gx, gy);
             this.timedHazards.push(new TimedHazard(this, pos.x, pos.y, this.TILE_SIZE, this.TILE_SIZE, on, off));
-            this.hazards.add(this.timedHazards[this.timedHazards.length-1].hazard);
+            this.hazards.add(this.timedHazards[this.timedHazards.length - 1].hazard);
         };
 
         // Relocated vents on main path
@@ -856,20 +859,20 @@ export class LarvaDisposalPit extends Scene {
 
         // Shadow aura around mask
         const aura = this.add.circle(x, y, 70, 0x000000, 0.4).setDepth(5);
-        this.tweens.add({ 
-            targets: aura, 
+        this.tweens.add({
+            targets: aura,
             alpha: { from: 0.2, to: 0.6 },
             scale: { from: 0.9, to: 1.1 },
-            duration: 1500, 
-            yoyo: true, 
-            repeat: -1 
+            duration: 1500,
+            yoyo: true,
+            repeat: -1
         });
 
         this.physics.add.overlap(this.player, mask, () => {
             this.hasShadowMask = true;
-            this.narrativeText.setText("SHADOW MASK OBTAINED.\nBLEND WITH DARKNESS.").setAlpha(1);
+            this.narrativeText.setText("SHADOW MASK OBTAINED.\\nBLEND WITH DARKNESS.\\nAUTO-HEALING ACTIVATED.").setAlpha(1);
             this.maskIndicator.setText('■ SHADOW MASK').setColor('#000000');
-            
+
             // Particle effect
             const particles = this.add.particles(x, y, 'sprite1', {
                 speed: { min: 100, max: 250 },
@@ -879,11 +882,11 @@ export class LarvaDisposalPit extends Scene {
                 tint: 0x000000,
                 quantity: 25
             });
-            
+
             this.cameras.main.flash(300, 0, 0, 0, false);
             mask.destroy();
             aura.destroy();
-            
+
             this.time.delayedCall(600, () => particles.destroy());
             this.time.delayedCall(2500, () => this.narrativeText.setAlpha(0));
         });
@@ -921,61 +924,62 @@ export class LarvaDisposalPit extends Scene {
         // World Y of yStart grid (Bottom of zone)
         // Bottom edge is center + 32.
         const bottomWorld = this.gridToWorld(0, yStart).y + 32;
-        
+
         const h = bottomWorld - topWorld;
-        const cy = topWorld + h/2;
-        
+        const cy = topWorld + h / 2;
+
         // Use physics bounds width
         const w = this.physics.world.bounds.width;
-        
-        const overlay = this.add.rectangle(w/2, cy, w, h, color, alpha);
-        overlay.setDepth(100); 
+
+        const overlay = this.add.rectangle(w / 2, cy, w, h, color, alpha);
+        overlay.setDepth(100);
         return overlay;
     }
 
     private setupIntro() {
-         this.narrativeText = this.add.text(this.scale.width / 2, this.scale.height / 2, "", {
+        this.narrativeText = this.add.text(this.scale.width / 2, this.scale.height / 2, "", {
             fontFamily: 'Courier',
             fontSize: '20px',
             color: '#ffffff',
             align: 'center'
         })
-        .setOrigin(0.5)
-        .setScrollFactor(0)
-        .setDepth(200);
+            .setOrigin(0.5)
+            .setScrollFactor(0)
+            .setDepth(200);
 
-        this.canMove = true; 
+        this.canMove = true;
     }
 
     handleDeath() {
         this.cameras.main.flash(400, 255, 0, 0);
         this.cameras.main.shake(200, 0.01);
-        
+
         // Reset HP
         this.hp = this.maxHp;
         this.updateHPText();
-        
+
         if (this.lastCheckpoint) {
             this.player.setPosition(this.lastCheckpoint.x, this.lastCheckpoint.y);
         } else {
             const startPos = this.gridToWorld(3, 2);
             this.player.setPosition(startPos.x, startPos.y);
         }
-        
+
         this.player.setVelocity(0, 0);
         this.isPlayerDetected = false;
         this.isInvulnerable = false;
+        this.healingTimer = 0; // Reset healing timer
     }
 
     private handleLevelComplete() {
         if (!this.canMove) return;
         this.canMove = false;
-        
+
         let message = "ACT 1 COMPLETE.\nASCENT ACHIEVED.";
         if (this.score === this.totalGems) {
             message = "PERFECT ASCENT!\nALL GEMS COLLECTED.\n" + message;
         }
-        
+
         this.narrativeText.setText(message).setAlpha(1);
         this.tweens.add({
             targets: this.cameras.main,
@@ -999,16 +1003,16 @@ export class LarvaDisposalPit extends Scene {
         }
 
         if (!this.canMove) return;
-        
+
         // Reset shadow state each frame
         this.isPlayerInShadow = false;
-        
+
         this.player.update();
-        
+
         // Update shadow glow position and visibility
         if (this.playerShadowGlow) {
             this.playerShadowGlow.setPosition(this.player.x, this.player.y);
-            
+
             // Check if player is in any shadow zone
             let inAnyShadow = false;
             this.shadowZones.forEach(zone => {
@@ -1016,7 +1020,7 @@ export class LarvaDisposalPit extends Scene {
                     inAnyShadow = true;
                 }
             });
-            
+
             if (inAnyShadow && this.hasShadowMask) {
                 this.isPlayerInShadow = true;
                 this.playerShadowGlow.setVisible(true);
@@ -1026,11 +1030,34 @@ export class LarvaDisposalPit extends Scene {
                 this.player.setAlpha(1.0); // Normal
             }
         }
-        
+
         // Update enforcers
         this.enforcers.children.entries.forEach((enforcer: any) => {
             if (enforcer.update) enforcer.update();
         });
+
+        // Automatic healing when player has shadow mask
+        if (this.hasShadowMask && this.hp < this.maxHp) {
+            this.healingTimer += this.game.loop.delta;
+
+            if (this.healingTimer >= this.HEAL_INTERVAL) {
+                this.healingTimer = 0;
+                this.hp = Math.min(this.maxHp, this.hp + this.HEAL_RATE);
+                this.updateHPText();
+
+                // Subtle healing visual feedback
+                const healParticle = this.add.circle(this.player.x, this.player.y, 5, 0x00ff88, 0.8);
+                healParticle.setDepth(150);
+                this.tweens.add({
+                    targets: healParticle,
+                    y: healParticle.y - 30,
+                    alpha: 0,
+                    duration: 800,
+                    ease: 'Cubic.easeOut',
+                    onComplete: () => healParticle.destroy()
+                });
+            }
+        }
 
         // Camera control
         const maxLookOffset = 250;
@@ -1134,7 +1161,7 @@ export class LarvaDisposalPit extends Scene {
                 this.updatePauseMenuDisplay();
             }
 
-            if (Phaser.Input.Keyboard.JustDown(this.cursors.space) || 
+            if (Phaser.Input.Keyboard.JustDown(this.cursors.space) ||
                 (this.input.keyboard && Phaser.Input.Keyboard.JustDown(this.input.keyboard.addKey('ENTER')))) {
                 this.pauseMenuOptions[this.pauseSelectedIndex].action();
             }
