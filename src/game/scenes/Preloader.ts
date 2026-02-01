@@ -31,6 +31,16 @@ export class Preloader extends Scene {
 
         this.load.image('logo', 'shatter_demo.png');
         this.load.image('sprite1', 'sprites/sprite1.png');
+
+        // Load coin and mask sprites
+        this.load.image('coin', 'sprites/Coin.png');
+        this.load.image('mask', 'sprites/Mask.png');
+
+        // Load walking animation frames
+        for (let i = 0; i < 24; i++) {
+            const frameNumber = i.toString().padStart(3, '0');
+            this.load.image(`walk_${i}`, `sprites/Animation/walking/0_Reaper_Man_Walking_${frameNumber}.png`);
+        }
         
         // Load parallax layers
         this.load.setPath('assets/title_parallax');
@@ -43,6 +53,19 @@ export class Preloader extends Scene {
     create() {
         //  When all the assets have loaded, it's often worth creating global objects here that the rest of the game can use.
         //  For example, you can define global animations here, so we can use them in other scenes.
+
+        // Create walking animation
+        const walkFrames = [];
+        for (let i = 0; i < 24; i++) {
+            walkFrames.push({ key: `walk_${i}` });
+        }
+
+        this.anims.create({
+            key: 'walk',
+            frames: walkFrames,
+            frameRate: 20,
+            repeat: -1
+        });
 
         //  Move to the MainMenu. You could also swap this for a Scene Transition, such as a camera fade.
         this.scene.start('FullscreenPrompt');
