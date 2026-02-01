@@ -250,9 +250,8 @@ class ScoreGem {
     collected: boolean = false;
 
     constructor(scene: Scene, x: number, y: number) {
-        this.sprite = scene.add.sprite(x, y, 'sprite1')
+        this.sprite = scene.add.sprite(x, y, 'coin')
             .setDisplaySize(30, 30)
-            .setTint(0xffdd00)
             .setDepth(15);
 
         scene.physics.add.existing(this.sprite, true);
@@ -861,7 +860,7 @@ export class LarvaDisposalPit extends Scene {
     }
 
     private createMask(x: number, y: number) {
-        const mask = this.add.sprite(x, y, 'sprite1').setTint(0x222222).setDisplaySize(50, 50);
+        const mask = this.add.sprite(x, y, 'mask').setDisplaySize(50, 50);
         this.physics.add.existing(mask, true);
         this.tweens.add({ targets: mask, y: y - 10, duration: 1500, yoyo: true, repeat: -1 });
 
@@ -882,7 +881,7 @@ export class LarvaDisposalPit extends Scene {
             this.maskIndicator.setText('■ SHADOW MASK').setColor('#000000');
 
             // Particle effect
-            const particles = this.add.particles(x, y, 'sprite1', {
+            const particles = this.add.particles(x, y, 'mask', {
                 speed: { min: 100, max: 250 },
                 scale: { start: 0.5, end: 0 },
                 alpha: { start: 0.8, end: 0 },
