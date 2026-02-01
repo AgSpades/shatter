@@ -401,6 +401,17 @@ export class LarvaDisposalPit extends Scene {
         const sceneData = this.scene.settings.data as any;
         if (sceneData?.loadSave && sceneData?.saveData) {
             this.loadSaveData(sceneData.saveData);
+        } else {
+            // Auto-load from localStorage if available
+            try {
+                const savedGame = localStorage.getItem('shatter_save');
+                if (savedGame) {
+                    const saveData = JSON.parse(savedGame);
+                    this.loadSaveData(saveData);
+                }
+            } catch (e) {
+                console.error('Failed to load saved game:', e);
+            }
         }
 
         // --- Collisions ---
@@ -427,13 +438,10 @@ export class LarvaDisposalPit extends Scene {
                         x: checkpoint.sprite.x,
                         y: checkpoint.sprite.y
                     };
-                }
 
-                // Heal player if not at full HP
-                if (this.hp < this.maxHp) {
-                    this.hp = this.maxHp;
-                    this.updateHPText();
-                    this.showHealMessage();
+                    // Auto-save game when reaching checkpoint
+                    this.saveGame();
+                    this.showCheckpointMessage('CHECKPOINT SAVED');
                 }
             });
         });
@@ -1178,8 +1186,8 @@ export class LarvaDisposalPit extends Scene {
         });
     }
 
-    private showHealMessage() {
-        const msg = this.add.text(this.scale.width / 2, this.scale.height / 2 - 100, 'FULLY HEALED', {
+    private showCheckpointMessage(message: string) {
+        const msg = this.add.text(this.scale.width / 2, this.scale.height / 2 - 100, message, {
             fontFamily: 'Courier',
             fontSize: '24px',
             color: '#00ff88',
