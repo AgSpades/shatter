@@ -3,6 +3,11 @@ export class MobileUtils {
      * Detect if the current device is a mobile device
      */
     static isMobile(): boolean {
+        // Tauri desktop apps should NOT be treated as mobile (even if they have touch support)
+        if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+            return false;
+        }
+        
         // Check for touch support
         const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
         
