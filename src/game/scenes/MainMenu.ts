@@ -179,17 +179,14 @@ export class MainMenu extends Scene {
         // Clear any existing save
         localStorage.removeItem('shatter_save');
 
-        // Stop story music before entering game
-        const storyMusic = this.sound.get('story-music');
-        if (storyMusic) {
-            storyMusic.stop();
-        }
+        // Keep story music playing through narration
+        // (NarrationScene will handle stopping it when transitioning to game)
 
         if (this.scale.isFullscreen) {
-            this.scene.start('LarvaDisposalPit');
+            this.scene.start('NarrationScene');
         } else {
             this.scale.startFullscreen();
-            this.scene.start('LarvaDisposalPit');
+            this.scene.start('NarrationScene');
         }
     }
 

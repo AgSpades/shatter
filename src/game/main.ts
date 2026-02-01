@@ -4,6 +4,7 @@ import { Game as MainGame } from './scenes/Game';
 import { MainMenu } from './scenes/MainMenu';
 import { FullscreenPrompt } from './scenes/FullscreenPrompt';
 import { LarvaDisposalPit } from './scenes/LarvaDisposalPit';
+import { NarrationScene } from './scenes/NarrationScene';
 import { AUTO, Game } from 'phaser';
 import { Preloader } from './scenes/Preloader';
 import { SplashScreen } from './scenes/SplashScreen';
@@ -34,6 +35,7 @@ const config: Phaser.Types.Core.GameConfig = {
         Preloader,
         FullscreenPrompt,
         MainMenu,
+        NarrationScene,
         LarvaDisposalPit,
         MainGame,
         GameOver
