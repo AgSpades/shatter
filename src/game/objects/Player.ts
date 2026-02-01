@@ -8,7 +8,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     private lastFacing: 'left' | 'right' = 'right';
 
     constructor(scene: Scene, x: number, y: number) {
-        super(scene, x, y, 'sprite1');
+        super(scene, x, y, 'walk_0'); // Use first walking frame
 
         scene.add.existing(this);
         scene.physics.add.existing(this);
@@ -26,15 +26,15 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         // Sprite texture bounds adjustment (Proportional)
         const width = this.width * 0.4;
         const height = this.height * 0.6;
-        
-        body.setSize(width, height); 
-        
+
+        body.setSize(width, height);
+
         // Offset: Centered X, Padded Bottom Y
         const offsetX = (this.width - width) / 2;
-        const offsetY = this.height - height - (this.height * 0.15); 
-        
+        const offsetY = this.height - height - (this.height * 0.15);
+
         body.setOffset(offsetX, offsetY);
-        
+
         body.setDragX(1200);
         body.setMaxVelocity(400, 1000);
     }
@@ -49,19 +49,19 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         const body = this.body as Phaser.Physics.Arcade.Body;
         this.isDashing = true;
         this.canDash = false;
-        
+
         // Physics alterations for dash
         body.allowGravity = false;
         const originalDrag = body.drag.x;
-        const originalMaxVelX = body.maxVelocity.x; 
-        
-        body.setDragX(0); 
-        body.setMaxVelocity(10000, body.maxVelocity.y); 
-        
+        const originalMaxVelX = body.maxVelocity.x;
+
+        body.setDragX(0);
+        body.setMaxVelocity(10000, body.maxVelocity.y);
+
         // Dash Velocity
-        const dashSpeed = 800; 
+        const dashSpeed = 800;
         const direction = this.lastFacing === 'left' ? -1 : 1;
-        
+
         body.setVelocityX(dashSpeed * direction);
         body.setVelocityY(0);
 
@@ -86,7 +86,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         if (!this.cursors) return;
 
         const body = this.body as Phaser.Physics.Arcade.Body;
-        
+
         // If dashing, ignore other inputs
         if (this.isDashing) return;
 
@@ -97,7 +97,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         // Ground Check
         if (body.touching.down) {
             this.canDoubleJump = true;
-            this.canDash = true; 
+            this.canDash = true;
         }
 
         // Horizontal Movement
@@ -105,16 +105,32 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
             body.setVelocityX(-speed);
             this.lastFacing = 'left';
             this.setFlipX(true); // Visual flip
+
+            // Play walking animation
+            if (this.anims && !this.anims.isPlaying) {
+                this.play('walk');
+            }
         } else if (this.cursors.right.isDown) {
             body.setVelocityX(speed);
             this.lastFacing = 'right';
             this.setFlipX(false);
+
+            // Play walking animation
+            if (this.anims && !this.anims.isPlaying) {
+                this.play('walk');
+            }
+        } else {
+            // Stop animation when not moving
+            if (this.anims && this.anims.isPlaying) {
+                this.stop();
+                this.setTexture('walk_0'); // Show first frame when idle
+            }
         }
 
         // Dash Input
         if (Phaser.Input.Keyboard.JustDown(this.cursors.shift) && this.canDash) {
             this.startDash();
-            return; 
+            return;
         }
 
         // Jump Logic
@@ -122,11 +138,11 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
             if (body.touching.down) {
                 body.setVelocityY(jumpStrength);
             } else if (this.canDoubleJump) {
-                body.setVelocityY(-600); 
+                body.setVelocityY(-600);
                 this.canDoubleJump = false;
             }
         }
-        
+
         // Variable Jump Height
         if (Phaser.Input.Keyboard.JustUp(this.cursors.space)) {
             if (body.velocity.y < 0) {
