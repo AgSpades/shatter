@@ -31,6 +31,13 @@ export class Preloader extends Scene {
 
         this.load.image('logo', 'shatter_demo.png');
         this.load.image('sprite1', 'sprites/sprite1.png');
+        
+        // Load parallax layers
+        this.load.setPath('assets/title_parallax');
+        this.load.image('parallax-bg', 'parallax-demon-woods-bg.png');
+        this.load.image('parallax-far-trees', 'parallax-demon-woods-far-trees.png');
+        this.load.image('parallax-mid-trees', 'parallax-demon-woods-mid-trees.png');
+        this.load.image('parallax-close-trees', 'parallax-demon-woods-close-trees.png');
     }
 
     create() {

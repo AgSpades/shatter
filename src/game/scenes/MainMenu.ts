@@ -6,9 +6,14 @@ interface MenuOption {
 }
 
 export class MainMenu extends Scene {
+    // Parallax layers
+    parallaxBg: GameObjects.TileSprite;
+    parallaxFarTrees: GameObjects.TileSprite;
+    parallaxMidTrees: GameObjects.TileSprite;
+    parallaxCloseTrees: GameObjects.TileSprite;
+    
     background: GameObjects.Image;
     logo: GameObjects.Image;
-    title: GameObjects.Text;
     menuOptions: MenuOption[];
     menuTexts: GameObjects.Text[] = [];
     selectedIndex: number = 0;
@@ -24,16 +29,34 @@ export class MainMenu extends Scene {
     create() {
         const { width, height } = this.scale;
 
-        this.background = this.add.image(width / 2, height / 2, 'background');
-        this.background.setDisplaySize(width, height);
+        // Create parallax background layers (back to front)
+        this.parallaxBg = this.add.tileSprite(width / 2, height / 2, width, height, 'parallax-bg');
+        this.parallaxBg.setDisplaySize(width, height);
+        
+        this.parallaxFarTrees = this.add.tileSprite(width / 2, height / 2, width, height, 'parallax-far-trees');
+        this.parallaxFarTrees.setDisplaySize(width, height);
+        
+        this.parallaxMidTrees = this.add.tileSprite(width / 2, height / 2, width, height, 'parallax-mid-trees');
+        this.parallaxMidTrees.setDisplaySize(width, height);
+        
+        this.parallaxCloseTrees = this.add.tileSprite(width / 2, height / 2, width, height, 'parallax-close-trees');
+        this.parallaxCloseTrees.setDisplaySize(width, height);
+
+        // Add dark overlay for better text contrast
+        this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.4);
 
         this.logo = this.add.image(width / 2, height / 2 - 160, 'logo');
-
-        this.title = this.add.text(width / 2, height / 2 - 60, 'THE ASCENT', {
-            fontFamily: 'Courier', fontSize: 48, color: '#ffffff',
-            fontStyle: 'bold',
-            align: 'center'
-        }).setOrigin(0.5);
+        
+        // Add glow effect to logo
+        this.tweens.add({
+            targets: this.logo,
+            alpha: { from: 0.8, to: 1 },
+            scale: { from: 0.98, to: 1.02 },
+            duration: 2000,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut'
+        });
 
         // Define menu options
         this.menuOptions = [
@@ -59,7 +82,9 @@ export class MainMenu extends Scene {
             const text = this.add.text(width / 2, startY + (index * spacing), option.text, {
                 fontFamily: 'Courier',
                 fontSize: '28px',
-                color: '#888888'
+                color: '#888888',
+                stroke: '#000000',
+                strokeThickness: 3
             }).setOrigin(0.5);
             
             this.menuTexts.push(text);
@@ -75,6 +100,16 @@ export class MainMenu extends Scene {
             text.on('pointerdown', () => {
                 option.action();
             });
+            
+            // Stagger fade-in animation
+            text.setAlpha(0);
+            this.tweens.add({
+                targets: text,
+                alpha: 1,
+                duration: 500,
+                delay: 500 + (index * 150),
+                ease: 'Power2'
+            });
         });
 
         // Keyboard controls
@@ -88,6 +123,12 @@ export class MainMenu extends Scene {
     }
 
     update() {
+        // Animate parallax layers at different speeds
+        this.parallaxBg.tilePositionX += 0.1;
+        this.parallaxFarTrees.tilePositionX += 0.3;
+        this.parallaxMidTrees.tilePositionX += 0.6;
+        this.parallaxCloseTrees.tilePositionX += 1.2;
+        
         if (!this.canNavigate) return;
 
         // Navigate menu
