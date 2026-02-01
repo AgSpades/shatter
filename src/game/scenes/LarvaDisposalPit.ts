@@ -114,6 +114,7 @@ class SmartEnforcer extends Enforcer {
                 if (!pitScene.isPlayerDetected) {
                     pitScene.isPlayerDetected = true;
                     this.scene.time.delayedCall(300, () => {
+                        this.shootProjectile();
                         pitScene.takeDamage(1);
                         pitScene.isPlayerDetected = false;
                     });
@@ -122,6 +123,49 @@ class SmartEnforcer extends Enforcer {
                 this.detectionIndicator.setVisible(false);
             }
         }
+    }
+
+    private shootProjectile() {
+        if (!this.player || !this.scene) return;
+
+        // Draw laser beam
+        const laser = this.scene.add.line(0, 0, this.x, this.y, this.player.x, this.player.y, 0xff0000);
+        laser.setLineWidth(3);
+        laser.setOrigin(0);
+        laser.setDepth(200);
+
+        this.scene.tweens.add({
+            targets: laser,
+            alpha: 0,
+            duration: 150,
+            ease: 'Expo.easeOut',
+            onComplete: () => laser.destroy()
+        });
+
+        // Add muzzle flash at enforcer position
+        const flash = this.scene.add.circle(this.x, this.y, 25, 0xff0000, 0.9);
+        flash.setDepth(201);
+        this.scene.tweens.add({
+            targets: flash,
+            scale: 2.5,
+            alpha: 0,
+            duration: 200,
+            ease: 'Cubic.easeOut',
+            onComplete: () => flash.destroy()
+        });
+
+        // Add impact spark at player position
+        const impact = this.scene.add.star(this.player.x, this.player.y, 5, 8, 15, 0xffff00, 1.0);
+        impact.setDepth(202);
+        this.scene.tweens.add({
+            targets: impact,
+            rotation: 2 * Math.PI,
+            scale: 2,
+            alpha: 0,
+            duration: 300,
+            ease: 'Power2',
+            onComplete: () => impact.destroy()
+        });
     }
 
     stopAndTurn() {

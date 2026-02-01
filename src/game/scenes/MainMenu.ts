@@ -79,10 +79,6 @@ export class MainMenu extends Scene {
             {
                 text: 'SETTINGS',
                 action: () => this.openSettings()
-            },
-            {
-                text: 'EXIT',
-                action: () => this.exitGame()
             }
         ];
 
@@ -351,14 +347,6 @@ export class MainMenu extends Scene {
         } else {
             this.showMessage('NO SAVE DATA FOUND');
         }
-    }
-
-    private exitGame() {
-        this.showMessage('THANKS FOR PLAYING');
-        this.time.delayedCall(1500, () => {
-            // In browser, just return to menu
-            window.close();
-        });
     }
 
     private showMessage(message: string) {
