@@ -227,6 +227,9 @@ class Checkpoint {
         this.sprite.setStrokeStyle(4, 0xffffff);
         this.glow.setFillStyle(0xffffff, 0.5);
 
+        // Play checkpoint sound effect
+        this.playCheckpointSound(scene);
+
         // Flash effect
         scene.cameras.main.flash(200, 0, 255, 136, false);
 
@@ -241,6 +244,42 @@ class Checkpoint {
             ease: 'Cubic.easeOut',
             onComplete: () => flash.destroy()
         });
+    }
+
+    private playCheckpointSound(scene: Scene) {
+        // Create a resonant checkpoint activation sound using Web Audio API
+        const soundManager = scene.sound as any;
+        const audioContext = soundManager.context as AudioContext;
+        if (!audioContext) return;
+
+        const oscillator = audioContext.createOscillator();
+        const secondOscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.connect(gainNode);
+        secondOscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        // Resonant ascending chime (C5 to G5 + C6)
+        const now = audioContext.currentTime;
+        oscillator.frequency.setValueAtTime(523.25, now); // C5
+        oscillator.frequency.exponentialRampToValueAtTime(783.99, now + 0.1); // G5
+        oscillator.frequency.exponentialRampToValueAtTime(1046.5, now + 0.3); // C6
+
+        secondOscillator.frequency.setValueAtTime(261.63, now); // C4 (Body)
+        secondOscillator.frequency.exponentialRampToValueAtTime(523.25, now + 0.3); // C5
+
+        // Volume envelope with a nice decay
+        gainNode.gain.setValueAtTime(0.1, now); // Slightly louder than 0.05 but quieter than 0.4
+        gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+
+        oscillator.type = 'sine';
+        secondOscillator.type = 'sine';
+
+        oscillator.start(now);
+        secondOscillator.start(now);
+        oscillator.stop(now + 0.6);
+        secondOscillator.stop(now + 0.6);
     }
 }
 
@@ -316,7 +355,7 @@ class ScoreGem {
         oscillator.frequency.exponentialRampToValueAtTime(1318.5, audioContext.currentTime + 0.1); // E6
 
         // Volume envelope
-        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.setValueAtTime(0.05, audioContext.currentTime);
         gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
 
         oscillator.type = 'sine';
@@ -645,86 +684,86 @@ export class LarvaDisposalPit extends Scene {
 
     private createLevel() {
         const mapData = [
-            "###############################", // Y=79
-            "##.............X.............##", // Y=78 - EXIT
-            "#############....##############", // Y=77
-            "##.........C..........===....##", // Y=76 - Checkpoint 4 + bridge
-            "##..........====.......S.....##", // Y=75 - Bridge + Shadow
-            "##.......===........====.....##", // Y=74 - Bridge platforms
-            "##....g........S.............##", // Y=73 - Gem + Shadow
-            "##..........====......====...##", // Y=72 - Bridge platforms
-            "##...g...........g...........##", // Y=71 - Gems
-            "##......====.........====....##", // Y=70 - Bridge platforms
-            "##.....S...........g.........##", // Y=69 - Shadow + gem
-            "##....==....====.....====....##", // Y=68 - Bridge platforms
-            "##...g...........g...........##", // Y=67 - Gems
-            "#########===.........====....##", // Y=66 - Platform + bridge
-            "##..........g........===.....##", // Y=65 - Gem
-            "############===..............##", // Y=64 - Step up
-            "##..............===..g.......##", // Y=63
-            "##..g........................##", // Y=62
-            "##...........g...............##", // Y=61
-            "##.....===...................##", // Y=60
-            "##...........................##", // Y=59
-            "##..g........===.............##", // Y=58
-            "##....................===....##", // Y=57
-            "##............g..............##", // Y=56
-            "##........===.....===........##", // Y=55 - Platform under mask
-            "##.......g.....DM.....g......##", // Y=54 - SHADOW MASK + gems
-            "#####======.........======...##", // Y=53 - Solid platforms
-            "#####..........g.............##", // Y=52
-            "##...........................##", // Y=51
-            "##...........g...............##", // Y=50
-            "##......===..................##", // Y=49 - SANCTUARY ZONE D
-            "#############....##############", // Y=48 - Checkpoint 3
-            "##..........#..=.#ggggggggggg##", // Y=47
-            "##..........#....#...........##", // Y=46
-            "##.===......#....#.===......g##", // Y=45 - Side platforms
-            "##..g.......#....#...........##", // Y=44 - Shadow + gems
-            "##..........#....#..====.....##", // Y=43
-            "##.===......#.==.#..........g##", // Y=42 - Intermediate zigzag
-            "#####.................=======##", // Y=41
-            "##............=====..........##", // Y=40 - Center platform + gem
-            "#########...#....#...##########", // Y=39 - Intermediate platform
-            "##.........=#.==.#...........##", // Y=38
-            "##..g.......#....#.......g...##", // Y=37 - Gems
-            "##..========#....#==.........##", // Y=36
-            "##........R.#....#...........##", // Y=35 - Vent marker
-            "##########..#....#..###########", // Y=34
-            "##..g...........g#...........##", // Y=33 - GRINDER ZONE C
-            "#############....##############", // Y=32 - Wider shaft (4 tiles)
-            "##...........C...g...........##", // Y=31 - Checkpoint 2 + gem
-            "##..g........................##", // Y=30
-            "######..===####################", // Y=29
-            "##...........................##", // Y=28
-            "##...###...g.................##", // Y=27
-            "##...........................##", // Y=26
-            "#######=======.g.........######", // Y=25
-            "##.........g.................##", // Y=24
-            "##....===.........===.....g..##", // Y=23 - Left stepping stone
-            "##........S..................##", // Y=22 - Shadow zone
-            "########===############===...##", // Y=21
-            "##.....g........g............##", // Y=20
-            "#########################==..##", // Y=19
-            "##..g........................##", // Y=18
-            "##....===........===.........##", // Y=17 - FIXED: Left platform
-            "############.C...##############", // Y=16 - Checkpoint 1
-            "##.........##g..###############", // Y=15
-            "##........g###g..##############", // Y=14
-            "##........###.g.###############", // Y=13
-            "##.......g.......##############", // Y=12
-            "#############....##############", // Y=11
-            "##.............#.............##", // Y=10
-            "##.........##..g.............##", // Y=09
-            "##...........................##", // Y=08
-            "###################.g....######", // Y=07
-            "##.............g.............##", // Y=06
-            "####################...########", // Y=05
-            "##..........g................##", // Y=04
-            "##..g................===.....##", // Y=03
-            "##..P........................##", // Y=02 - PLAYER START
-            "###############################", // Y=01
-            "###############################"  // Y=00
+            "##############################", // Y=79
+            "#.............X.............##", // Y=78 - EXIT
+            "############....##############", // Y=77
+            "#.........C..........===....##", // Y=76 - Checkpoint 4 + bridge
+            "#..........====.......S.....##", // Y=75 - Bridge + Shadow
+            "#.......===........====.....##", // Y=74 - Bridge platforms
+            "#....g........S.............##", // Y=73 - Gem + Shadow
+            "#..........====......====...##", // Y=72 - Bridge platforms
+            "#...g...........g...........##", // Y=71 - Gems
+            "#......====.........====....##", // Y=70 - Bridge platforms
+            "#.....S...........g.........##", // Y=69 - Shadow + gem
+            "#....==....====.....====....##", // Y=68 - Bridge platforms
+            "#...g...........g...........##", // Y=67 - Gems
+            "########===.........====....##", // Y=66 - Platform + bridge
+            "#..........g........===.....##", // Y=65 - Gem
+            "###########===..............##", // Y=64 - Step up
+            "#..............===..g.......##", // Y=63
+            "#..g........................##", // Y=62
+            "#...........g...............##", // Y=61
+            "#.....===...................##", // Y=60
+            "#...........................##", // Y=59
+            "#..g........===.............##", // Y=58
+            "#....................===....##", // Y=57
+            "#............g..............##", // Y=56
+            "#........===.....===........##", // Y=55 - Platform under mask
+            "#.......g.....DM.....g......##", // Y=54 - SHADOW MASK + gems
+            "####======.........======...##", // Y=53 - Solid platforms
+            "####..........g.............##", // Y=52
+            "#...........................##", // Y=51
+            "#...........g...............##", // Y=50
+            "#......===..................##", // Y=49 - SANCTUARY ZONE D
+            "############....##############", // Y=48 - Checkpoint 3
+            "#..........#..=.#ggggggggggg##", // Y=47
+            "#..........#....#...........##", // Y=46
+            "#.===......#....#.===......g##", // Y=45 - Side platforms
+            "#..g.......#....#...........##", // Y=44 - Shadow + gems
+            "#..........#....#..====.....##", // Y=43
+            "#.===......#.==.#..........g##", // Y=42 - Intermediate zigzag
+            "####.................=======##", // Y=41
+            "#............=====..........##", // Y=40 - Center platform + gem
+            "########...#....#...##########", // Y=39 - Intermediate platform
+            "#.........=#.==.#...........##", // Y=38
+            "#..g.......#....#.......g...##", // Y=37 - Gems
+            "#..========#....#==.........##", // Y=36
+            "#........R.#....#...........##", // Y=35 - Vent marker
+            "#########..#....#..###########", // Y=34
+            "#..g...........g#...........##", // Y=33 - GRINDER ZONE C
+            "############....##############", // Y=32 - Wider shaft (4 tiles)
+            "#...........C...g...........##", // Y=31 - Checkpoint 2 + gem
+            "#..g........................##", // Y=30
+            "#####..===####################", // Y=29
+            "#...........................##", // Y=28
+            "#...###...g.................##", // Y=27
+            "#...........................##", // Y=26
+            "######=======.g.........######", // Y=25
+            "#.........g.................##", // Y=24
+            "#....===.........===.....g..##", // Y=23 - Left stepping stone
+            "#........S..................##", // Y=22 - Shadow zone
+            "#######===############===...##", // Y=21
+            "#.....g........g............##", // Y=20
+            "########################==..##", // Y=19
+            "#..g........................##", // Y=18
+            "#....===........===.........##", // Y=17 - FIXED: Left platform
+            "###########.C...##############", // Y=16 - Checkpoint 1
+            "#.........##g..###############", // Y=15
+            "#........g###g..##############", // Y=14
+            "#........###.g.###############", // Y=13
+            "#.......g.......##############", // Y=12
+            "############....##############", // Y=11
+            "#.............#.............##", // Y=10
+            "#.........##..g.............##", // Y=09
+            "#...........................##", // Y=08
+            "##################.g....######", // Y=07
+            "#.............g.............##", // Y=06
+            "###################...########", // Y=05
+            "#..........g................##", // Y=04
+            "#..g................===.....##", // Y=03
+            "#..P........................##", // Y=02 - PLAYER START
+            "##############################", // Y=01
+            "##############################"  // Y=00
         ];
 
         mapData.forEach((row, rowIndex) => {
@@ -765,7 +804,7 @@ export class LarvaDisposalPit extends Scene {
                     plat.refreshBody();
                 } else if (char === '|') {
                     // Structure/Pipe
-                    const grate = this.add.tileSprite(pos.x, pos.y, this.TILE_SIZE / 2, this.TILE_SIZE, 'cave_floor');
+                    this.add.tileSprite(pos.x, pos.y, this.TILE_SIZE / 2, this.TILE_SIZE, 'cave_floor');
 
                     const plat = this.platforms.create(pos.x, pos.y, undefined);
                     plat.setSize(this.TILE_SIZE, this.TILE_SIZE);
