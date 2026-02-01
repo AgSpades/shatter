@@ -40,7 +40,7 @@ export class SplashScreen extends Scene
                         ease: 'Power2',
                         onComplete: () => {
                             // Start preloader after fade out
-                            this.scene.start('Preloader');
+                            this.scene.start('MainMenu');
                         }
                     });
                 });

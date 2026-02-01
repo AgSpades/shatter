@@ -41,13 +41,18 @@ export class Preloader extends Scene {
             const frameNumber = i.toString().padStart(3, '0');
             this.load.image(`walk_${i}`, `sprites/Animation/walking/0_Reaper_Man_Walking_${frameNumber}.png`);
         }
-        
+
         // Load parallax layers
         this.load.setPath('assets/title_parallax');
         this.load.image('parallax-bg', 'parallax-demon-woods-bg.png');
         this.load.image('parallax-far-trees', 'parallax-demon-woods-far-trees.png');
         this.load.image('parallax-mid-trees', 'parallax-demon-woods-mid-trees.png');
         this.load.image('parallax-close-trees', 'parallax-demon-woods-close-trees.png');
+
+        // Load audio files
+        this.load.setPath('assets');
+        this.load.audio('story-music', 'story.mp3');
+        this.load.audio('woods-music', 'woods.mp3');
     }
 
     create() {

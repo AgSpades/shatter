@@ -18,6 +18,6 @@ export class Boot extends Scene
 
     create ()
     {
-        this.scene.start('SplashScreen');
+        this.scene.start('Preloader');
     }
 }

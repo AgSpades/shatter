@@ -303,7 +303,7 @@ export class LarvaDisposalPit extends Scene {
     parallaxFarTrees: Phaser.GameObjects.TileSprite;
     parallaxMidTrees: Phaser.GameObjects.TileSprite;
     parallaxCloseTrees: Phaser.GameObjects.TileSprite;
-    
+
     camera: Phaser.Cameras.Scene2D.Camera;
     player: Player;
     cursors: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -337,6 +337,8 @@ export class LarvaDisposalPit extends Scene {
     private pauseMenuOptions: { text: Phaser.GameObjects.Text, action: () => void }[] = [];
     private pauseSelectedIndex: number = 0;
     private escKey: Phaser.Input.Keyboard.Key | null = null;
+    private woodsMusic: Phaser.Sound.BaseSound;
+    private darknessOverlay: Phaser.GameObjects.Rectangle;
 
     // Map Config
     private readonly GRID_W = 30;
@@ -360,19 +362,19 @@ export class LarvaDisposalPit extends Scene {
         // Make them large enough to cover the entire world
         const bgWidth = worldWidth * 3;
         const bgHeight = worldHeight * 3;
-        
+
         this.parallaxBg = this.add.tileSprite(worldWidth / 2, worldHeight / 2, bgWidth, bgHeight, 'parallax-bg');
         this.parallaxBg.setScrollFactor(0.1, 0.1);
         this.parallaxBg.setDepth(-4);
-        
+
         this.parallaxFarTrees = this.add.tileSprite(worldWidth / 2, worldHeight / 2, bgWidth, bgHeight, 'parallax-far-trees');
         this.parallaxFarTrees.setScrollFactor(0.3, 0.3);
         this.parallaxFarTrees.setDepth(-3);
-        
+
         this.parallaxMidTrees = this.add.tileSprite(worldWidth / 2, worldHeight / 2, bgWidth, bgHeight, 'parallax-mid-trees');
         this.parallaxMidTrees.setScrollFactor(0.5, 0.5);
         this.parallaxMidTrees.setDepth(-2);
-        
+
         this.parallaxCloseTrees = this.add.tileSprite(worldWidth / 2, worldHeight / 2, bgWidth, bgHeight, 'parallax-close-trees');
         this.parallaxCloseTrees.setScrollFactor(0.7, 0.7);
         this.parallaxCloseTrees.setDepth(-1);
@@ -388,10 +390,35 @@ export class LarvaDisposalPit extends Scene {
         this.player = new Player(this, startP.x, startP.y);
         this.lastCheckpoint = { x: startP.x, y: startP.y };
 
+        // Increase player brightness with a glow effect
+        this.player.setTint(0xffffff); // Ensure full brightness
+        this.player.setAlpha(1.0); // Full opacity
+
         // Player shadow glow effect
         this.playerShadowGlow = this.add.circle(this.player.x, this.player.y, 60, 0x000000, 0.6);
         this.playerShadowGlow.setDepth(8);
         this.playerShadowGlow.setVisible(false);
+
+        // Add a bright glow around the player for visibility
+        const playerGlow = this.add.circle(this.player.x, this.player.y, 55, 0xffffff, 0.15);
+        playerGlow.setDepth(7);
+        playerGlow.setBlendMode(Phaser.BlendModes.ADD);
+
+        // Make glow follow player
+        this.events.on('update', () => {
+            if (playerGlow && this.player) {
+                playerGlow.setPosition(this.player.x, this.player.y);
+            }
+        });
+
+        // Create darkness overlay that transitions from dark (bottom) to light (top)
+        this.darknessOverlay = this.add.rectangle(worldWidth / 2, worldHeight / 2, worldWidth, worldHeight, 0x000000, 0.7);
+        this.darknessOverlay.setScrollFactor(0);
+        this.darknessOverlay.setDepth(150);
+
+        // Play woods ambient music
+        this.woodsMusic = this.sound.add('woods-music', { loop: true, volume: 0.3 });
+        this.woodsMusic.play();
 
         // --- UI Setup (must be before collectibles) ---
         this.setupUI();
@@ -1061,6 +1088,17 @@ export class LarvaDisposalPit extends Scene {
                 this.playerShadowGlow.setVisible(false);
                 this.player.setAlpha(1.0); // Normal
             }
+        }
+
+        // Update darkness overlay - fade from dark (bottom) to light (top)
+        if (this.darknessOverlay && this.player) {
+            // Calculate player's progress from bottom (0) to top (1)
+            const worldHeight = this.GRID_H * this.TILE_SIZE;
+            const progress = 1 - (this.player.y / worldHeight); // 0 at bottom, 1 at top
+
+            // Darkness fades from 0.7 (dark) at bottom to 0 (light) at top
+            const darknessAlpha = Math.max(0, 0.7 - (progress * 0.7));
+            this.darknessOverlay.setAlpha(darknessAlpha);
         }
 
         // Update enforcers

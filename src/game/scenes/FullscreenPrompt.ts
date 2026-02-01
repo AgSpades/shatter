@@ -1,12 +1,18 @@
 import { Scene } from 'phaser';
 
 export class FullscreenPrompt extends Scene {
+    private storyMusic: Phaser.Sound.BaseSound;
+
     constructor() {
         super('FullscreenPrompt');
     }
 
     create() {
         const { width, height } = this.scale;
+
+        // Play story music
+        this.storyMusic = this.sound.add('story-music', { loop: true, volume: 0.5 });
+        this.storyMusic.play();
 
         // Background
         this.add.rectangle(0, 0, width, height, 0x1a1a1d).setOrigin(0);
@@ -45,7 +51,9 @@ export class FullscreenPrompt extends Scene {
                 if (!this.scale.isFullscreen) {
                     this.scale.startFullscreen();
                 }
-                this.scene.start('MainMenu');
+                // Stop story music before transitioning
+                this.storyMusic.stop();
+                this.scene.start('SplashScreen');
             });
         }
     }
