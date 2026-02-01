@@ -137,53 +137,6 @@ class SmartEnforcer extends Enforcer {
     }
 }
 
-// Timed Hazard Wrapper
-class TimedHazard {
-    hazard: Hazard;
-    onDuration: number;
-    offDuration: number;
-    timer: Phaser.Time.TimerEvent;
-    isActive: boolean = true;
-
-    constructor(scene: Scene, x: number, y: number, w: number, h: number, onTime: number, offTime: number, startDelay: number = 0) {
-        this.hazard = new Hazard(scene, x, y, w, h);
-        this.onDuration = onTime * 1000;
-        this.offDuration = offTime * 1000;
-
-        // Initial state logic
-        if (startDelay > 0) {
-            this.setActiveState(false);
-            scene.time.delayedCall(startDelay * 1000, () => this.startCycle(scene));
-        } else {
-            this.startCycle(scene);
-        }
-    }
-
-    startCycle(scene: Scene) {
-        const cycle = () => {
-            this.setActiveState(!this.isActive);
-            const nextDuration = this.isActive ? this.onDuration : this.offDuration;
-            this.timer = scene.time.delayedCall(nextDuration, cycle);
-        };
-        // Start first toggle after OnDuration
-        this.timer = scene.time.delayedCall(this.onDuration, cycle);
-    }
-
-    setActiveState(active: boolean) {
-        this.isActive = active;
-        const body = this.hazard.body as Phaser.Physics.Arcade.Body;
-        if (body) {
-            // For Arcade Physics Static/Dynamic bodies, we can disable processing
-            // But Hazard might be a group member, check collision logic in Scene
-            // Disabling the body prevents overlap checks
-            body.enable = active;
-        }
-        // Alpha specific to Hazard sprite might need casting if it's a specific class
-        // Assuming Hazard extends Sprite/Image
-        (this.hazard as any).setAlpha(active ? 1 : 0.2);
-    }
-}
-
 // Checkpoint class
 class Checkpoint {
     sprite: Phaser.GameObjects.Arc;
@@ -378,7 +331,6 @@ export class LarvaDisposalPit extends Scene {
     platforms: Phaser.Physics.Arcade.StaticGroup;
     hazards: Phaser.GameObjects.Group;
     enforcers: Phaser.GameObjects.Group;
-    timedHazards: TimedHazard[] = [];
     checkpoints: Checkpoint[] = [];
     coins: Coin[] = [];
     shadowZones: Phaser.GameObjects.Rectangle[] = [];
@@ -976,19 +928,6 @@ export class LarvaDisposalPit extends Scene {
     }
 
     private createTriggers() {
-        const addVent = (gx: number, gy: number, on: number, off: number) => {
-            const pos = this.gridToWorld(gx, gy);
-            this.timedHazards.push(new TimedHazard(this, pos.x, pos.y, this.TILE_SIZE, this.TILE_SIZE, on, off));
-            this.hazards.add(this.timedHazards[this.timedHazards.length - 1].hazard);
-        };
-
-        // Relocated vents on main path
-        addVent(12, 22, 3, 3); // Zone B center path
-        addVent(10, 35, 3, 3); // Zone C shaft
-        addVent(20, 40, 3, 3); // Zone C right
-        addVent(8, 68, 2, 2);  // Zone E lower
-        addVent(18, 72, 2, 2); // Zone E upper
-
         // Shadow Zones (with physics)
         this.createShadowZone(10, 22);  // Zone B
         this.createShadowZone(22, 44);  // Zone C
