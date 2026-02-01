@@ -139,8 +139,8 @@ export class NarrationScene extends Scene {
             );
         }
 
-        // Skip instruction
-        this.skipInstructionText = this.add.text(width - 20, height - 20, "Press 'E' to skip", {
+        // Skip instruction (updated for mobile support)
+        this.skipInstructionText = this.add.text(width - 20, height - 20, "Press 'E' or tap to skip", {
             fontFamily: 'Courier',
             fontSize: '18px',
             color: '#888888'
@@ -160,6 +160,13 @@ export class NarrationScene extends Scene {
         if (this.input.keyboard) {
             this.eKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
         }
+
+        // Add touch/tap support for skipping
+        this.input.on('pointerdown', () => {
+            if (this.canSkip && !this.isComplete) {
+                this.skipNarration();
+            }
+        });
 
         // Start the narration
         this.showNextParagraph();

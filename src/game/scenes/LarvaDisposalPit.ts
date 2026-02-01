@@ -1,6 +1,9 @@
 import { Scene } from 'phaser';
 import { Player } from '../objects/Player';
 import { Enforcer } from '../objects/Enforcer';
+import { MobileUtils } from '../utils/MobileUtils';
+import { VirtualJoystick } from '../controls/VirtualJoystick';
+import { VirtualButton } from '../controls/VirtualButton';
 
 // Extended Enforcer with detection radius and stealth awareness
 class SmartEnforcer extends Enforcer {
@@ -386,10 +389,10 @@ export class LarvaDisposalPit extends Scene {
     private pauseSettingsMenu: Phaser.GameObjects.Container | null = null;
 
     // Mobile Controls
-    private joystickBase: Phaser.GameObjects.Arc | null = null;
-    private joystickThumb: Phaser.GameObjects.Arc | null = null;
-    private jumpButton: Phaser.GameObjects.Container | null = null;
     private isMobile: boolean = false;
+    private virtualJoystick: VirtualJoystick | null = null;
+    private virtualJumpButton: VirtualButton | null = null;
+    private virtualDashButton: VirtualButton | null = null;
 
     // Map Config
     private readonly GRID_W = 30;
@@ -639,55 +642,67 @@ export class LarvaDisposalPit extends Scene {
     }
 
     private setupMobileControls() {
-        this.isMobile = !this.sys.game.device.os.desktop;
+        // Detect if running on mobile device
+        this.isMobile = MobileUtils.isMobile();
+        
         if (!this.isMobile) return;
 
+        // Request landscape orientation and fullscreen
+        MobileUtils.requestLandscape();
+        
+        // Note: Fullscreen requires user gesture, so we'll attempt it but it may not work immediately
+        // It will work after first user touch
+        
         const { width, height } = this.scale;
-        const padding = 60;
-        const joystickX = 120;
-        const joystickY = height - 120;
-
-        // Joystick Base
-        this.joystickBase = this.add.circle(joystickX, joystickY, 80, 0x000000, 0.3)
-            .setScrollFactor(0)
-            .setDepth(500)
-            .setStrokeStyle(3, 0xffffff, 0.5);
-
-        // Joystick Thumb
-        this.joystickThumb = this.add.circle(joystickX, joystickY, 40, 0x00ff88, 0.6)
-            .setScrollFactor(0)
-            .setDepth(501);
-
-        // Jump Button
-        const jumpBtnX = width - 120;
-        const jumpBtnY = height - 120;
-
-        this.jumpButton = this.add.container(jumpBtnX, jumpBtnY).setScrollFactor(0).setDepth(500);
-        const jumpBase = this.add.circle(0, 0, 60, 0x000000, 0.3).setStrokeStyle(3, 0xffffff, 0.5);
-        const jumpText = this.add.text(0, 0, 'JUMP', { fontFamily: 'Courier', fontSize: '20px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
-        this.jumpButton.add([jumpBase, jumpText]);
-
-        // Input Logic
-        this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-            if (pointer.x > width / 2) {
-                // Potential Jump
-                const dist = Phaser.Math.Distance.Between(pointer.x, pointer.y, jumpBtnX, jumpBtnY);
-                if (dist < 100) {
-                    this.player.setMobileControls(false, false, true);
-                    jumpBase.setFillStyle(0x00ff88, 0.6);
+        
+        // Create virtual joystick (bottom-left)
+        const joystickX = 100;
+        const joystickY = height - 100;
+        this.virtualJoystick = new VirtualJoystick(this, joystickX, joystickY);
+        
+        // Create virtual jump button (bottom-right, lower)
+        const jumpBtnX = width - 100;
+        const jumpBtnY = height - 100;
+        this.virtualJumpButton = new VirtualButton(
+            this,
+            jumpBtnX,
+            jumpBtnY,
+            'jump',
+            () => {
+                // On press
+                this.player.virtualJump();
+            },
+            () => {
+                // On release - enable variable jump height
+                this.player.virtualJumpRelease();
+            }
+        );
+        
+        // Create virtual dash button (bottom-right, above jump)
+        const dashBtnX = width - 100;
+        const dashBtnY = height - 200;
+        this.virtualDashButton = new VirtualButton(
+            this,
+            dashBtnX,
+            dashBtnY,
+            'dash',
+            () => {
+                // On press
+                this.player.virtualDash();
+                // Show cooldown visual
+                if (this.virtualDashButton) {
+                    this.virtualDashButton.showCooldown(650); // Match dash cooldown
                 }
             }
-        });
+        );
 
-        this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-            if (pointer.x > width / 2) {
-                jumpBase.setFillStyle(0x000000, 0.3);
+        // Attempt fullscreen on first touch
+        this.input.once('pointerdown', () => {
+            if (!MobileUtils.isFullscreen()) {
+                MobileUtils.requestFullscreen().catch((err) => {
+                    console.log('Fullscreen not available:', err);
+                });
             }
-            // Reset joystick thumb on release
-            if (this.joystickThumb) {
-                this.joystickThumb.setPosition(joystickX, joystickY);
-            }
-            this.player.setMobileControls(false, false, false);
         });
     }
 
@@ -1299,25 +1314,10 @@ export class LarvaDisposalPit extends Scene {
     }
 
     update() {
-        // Mobile Input Processing
-        if (this.isMobile && this.joystickThumb && this.joystickBase) {
-            const pointer = this.input.activePointer;
-            if (pointer.isDown && pointer.x < this.scale.width / 2) {
-                const dist = Phaser.Math.Distance.Between(pointer.x, pointer.y, this.joystickBase.x, this.joystickBase.y);
-                const maxDist = 80;
-                const angle = Phaser.Math.Angle.Between(this.joystickBase.x, this.joystickBase.y, pointer.x, pointer.y);
-
-                const thumbDist = Math.min(dist, maxDist);
-                this.joystickThumb.x = this.joystickBase.x + Math.cos(angle) * thumbDist;
-                this.joystickThumb.y = this.joystickBase.y + Math.sin(angle) * thumbDist;
-
-                const threshold = 20;
-                const moveLeft = (pointer.x < this.joystickBase.x - threshold);
-                const moveRight = (pointer.x > this.joystickBase.x + threshold);
-
-                // Track jump state from previous frame if needed or via separate button
-                this.player.setMobileControls(moveLeft, moveRight, false);
-            }
+        // Virtual Joystick Input Processing (for mobile)
+        if (this.isMobile && this.virtualJoystick) {
+            const direction = this.virtualJoystick.getDirection();
+            this.player.setVirtualDirection(direction.x);
         }
 
         // Check for pause

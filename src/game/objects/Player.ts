@@ -13,9 +13,11 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     private canDash: boolean = true;
     private lastFacing: 'left' | 'right' = 'right';
 
-    private mobileLeft: boolean = false;
-    private mobileRight: boolean = false;
-    private mobileJump: boolean = false;
+    // Virtual input state (from joystick and buttons)
+    private virtualDirectionX: number = 0; // -1 to 1
+    private virtualJumpPressed: boolean = false;
+    private virtualJumpPrevious: boolean = false;
+    private virtualJumpReleased: boolean = false; // Track button release for variable jump height
 
     constructor(scene: Scene, x: number, y: number) {
         super(scene, x, y, 'walk_0'); // Use first walking frame
@@ -56,13 +58,34 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         }
     }
 
-    public setMobileControls(left: boolean, right: boolean, jump: boolean) {
-        this.mobileLeft = left;
-        this.mobileRight = right;
-        if (jump && !this.mobileJump) {
-            this.triggerJump();
+    /**
+     * Set virtual joystick direction (-1 to 1 for X axis)
+     */
+    public setVirtualDirection(x: number) {
+        this.virtualDirectionX = x;
+    }
+
+    /**
+     * Trigger virtual jump (called by virtual button)
+     */
+    public virtualJump() {
+        this.virtualJumpPressed = true;
+    }
+
+    /**
+     * Signal virtual jump button release (for variable jump height)
+     */
+    public virtualJumpRelease() {
+        this.virtualJumpReleased = true;
+    }
+
+    /**
+     * Trigger virtual dash (called by virtual button)
+     */
+    public virtualDash() {
+        if (this.canDash && !this.isDashing) {
+            this.startDash();
         }
-        this.mobileJump = jump;
     }
 
     private triggerJump() {
@@ -130,8 +153,18 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         }
 
         // Horizontal Movement Input Detection
-        const leftDown = (this.cursors?.left.isDown || this.wasd?.A.isDown || this.mobileLeft);
-        const rightDown = (this.cursors?.right.isDown || this.wasd?.D.isDown || this.mobileRight);
+        // Keyboard input
+        let moveDirection = 0;
+        if (this.cursors?.left.isDown || this.wasd?.A.isDown) moveDirection = -1;
+        if (this.cursors?.right.isDown || this.wasd?.D.isDown) moveDirection = 1;
+        
+        // Virtual joystick overrides keyboard if active
+        if (Math.abs(this.virtualDirectionX) > 0.1) {
+            moveDirection = this.virtualDirectionX;
+        }
+        
+        const leftDown = moveDirection < -0.1;
+        const rightDown = moveDirection > 0.1;
 
         if (leftDown) {
             body.setVelocityX(-speed);
@@ -167,11 +200,21 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
                 return;
             }
 
-            // Jump Input
+            // Jump Input (keyboard)
             if (Phaser.Input.Keyboard.JustDown(this.cursors.space) || Phaser.Input.Keyboard.JustDown(this.wasd.W)) {
                 this.triggerJump();
             }
+        }
+        
+        // Virtual jump input (works alongside keyboard)
+        if (this.virtualJumpPressed && !this.virtualJumpPrevious) {
+            this.triggerJump();
+        }
+        this.virtualJumpPrevious = this.virtualJumpPressed;
+        this.virtualJumpPressed = false; // Reset for next frame
 
+        // Variable Jump Height (keyboard)
+        if (this.scene.input.keyboard) {
             // Variable Jump Height
             if (Phaser.Input.Keyboard.JustUp(this.cursors.space) || Phaser.Input.Keyboard.JustUp(this.wasd.W)) {
                 if (body.velocity.y < 0) {
@@ -179,5 +222,13 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
                 }
             }
         }
+
+        // Variable Jump Height (virtual button)
+        if (this.virtualJumpReleased) {
+            if (body.velocity.y < 0) {
+                body.setVelocityY(body.velocity.y * jumpCut);
+            }
+        }
+        this.virtualJumpReleased = false; // Reset for next frame
     }
 }

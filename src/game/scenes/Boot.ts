@@ -1,4 +1,5 @@
 import { Scene } from 'phaser';
+import { MobileUtils } from '../utils/MobileUtils';
 
 export class Boot extends Scene
 {
@@ -18,6 +19,12 @@ export class Boot extends Scene
 
     create ()
     {
+        // Detect mobile and request landscape orientation
+        if (MobileUtils.isMobile()) {
+            MobileUtils.requestLandscape();
+            console.log('Mobile device detected - requesting landscape orientation');
+        }
+        
         this.scene.start('Preloader');
     }
 }

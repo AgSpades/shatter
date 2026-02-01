@@ -46,16 +46,22 @@ export class FullscreenPrompt extends Scene {
             repeat: -1
         });
 
-        // Input Listener
+        // Input Listener - both keyboard and touch
+        const proceedToNext = () => {
+            if (!this.scale.isFullscreen) {
+                this.scale.startFullscreen();
+            }
+            // Don't stop music - let it continue to SplashScreen
+            this.scene.start('SplashScreen');
+        };
+
+        // Keyboard support
         if (this.input.keyboard) {
             const enterKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
-            enterKey.on('down', () => {
-                if (!this.scale.isFullscreen) {
-                    this.scale.startFullscreen();
-                }
-                // Don't stop music - let it continue to SplashScreen
-                this.scene.start('SplashScreen');
-            });
+            enterKey.on('down', proceedToNext);
         }
+
+        // Touch/click support for mobile
+        this.input.on('pointerdown', proceedToNext);
     }
 }
