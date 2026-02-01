@@ -298,6 +298,12 @@ class ScoreGem {
 }
 
 export class LarvaDisposalPit extends Scene {
+    // Parallax background layers
+    parallaxBg: Phaser.GameObjects.TileSprite;
+    parallaxFarTrees: Phaser.GameObjects.TileSprite;
+    parallaxMidTrees: Phaser.GameObjects.TileSprite;
+    parallaxCloseTrees: Phaser.GameObjects.TileSprite;
+    
     camera: Phaser.Cameras.Scene2D.Camera;
     player: Player;
     cursors: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -343,18 +349,37 @@ export class LarvaDisposalPit extends Scene {
 
     create() {
         // --- Visuals & Environment ---
-        this.cameras.main.setBackgroundColor('#1a1a1d');
+        // Calculate world bounds first
+        const worldWidth = this.GRID_W * this.TILE_SIZE; // 1920
+        const worldHeight = this.GRID_H * this.TILE_SIZE; // 5120
+
+        // Set camera background color as fallback
+        this.cameras.main.setBackgroundColor('#0a0a0a');
+
+        // Create parallax background layers (back to front)
+        // Make them large enough to cover the entire world
+        const bgWidth = worldWidth * 3;
+        const bgHeight = worldHeight * 3;
+        
+        this.parallaxBg = this.add.tileSprite(worldWidth / 2, worldHeight / 2, bgWidth, bgHeight, 'parallax-bg');
+        this.parallaxBg.setScrollFactor(0.1, 0.1);
+        this.parallaxBg.setDepth(-4);
+        
+        this.parallaxFarTrees = this.add.tileSprite(worldWidth / 2, worldHeight / 2, bgWidth, bgHeight, 'parallax-far-trees');
+        this.parallaxFarTrees.setScrollFactor(0.3, 0.3);
+        this.parallaxFarTrees.setDepth(-3);
+        
+        this.parallaxMidTrees = this.add.tileSprite(worldWidth / 2, worldHeight / 2, bgWidth, bgHeight, 'parallax-mid-trees');
+        this.parallaxMidTrees.setScrollFactor(0.5, 0.5);
+        this.parallaxMidTrees.setDepth(-2);
+        
+        this.parallaxCloseTrees = this.add.tileSprite(worldWidth / 2, worldHeight / 2, bgWidth, bgHeight, 'parallax-close-trees');
+        this.parallaxCloseTrees.setScrollFactor(0.7, 0.7);
+        this.parallaxCloseTrees.setDepth(-1);
 
         this.platforms = this.physics.add.staticGroup();
         this.hazards = this.add.group();
         this.enforcers = this.add.group();
-
-        // Calculate world bounds
-        // Grid 0-79. Y=0 is BOTTOM. Y=79 is TOP.
-        // Phaser World usually 0 at top.
-        // Height = 80 * 64 = 5120.
-        const worldWidth = this.GRID_W * this.TILE_SIZE; // 1920
-        const worldHeight = this.GRID_H * this.TILE_SIZE; // 5120
 
         this.physics.world.setBounds(0, 0, worldWidth, worldHeight);
 
