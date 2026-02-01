@@ -982,7 +982,7 @@ export class LarvaDisposalPit extends Scene {
 
         this.physics.add.overlap(this.player, mask, () => {
             this.hasShadowMask = true;
-            this.narrativeText.setText(`SHADOW MASK OBTAINED.\\nBLEND WITH DARKNESS.\\nAUTO-HEALING ACTIVATED.`).setAlpha(1);
+            this.narrativeText.setText(`SHADOW MASK OBTAINED.\nBLEND WITH DARKNESS.\nAUTO-HEALING ACTIVATED.`).setAlpha(1);
             this.maskIndicator.setText('■ SHADOW MASK').setColor('#000000');
 
             // Play checkpoint sound for mask as well
@@ -1091,19 +1091,70 @@ export class LarvaDisposalPit extends Scene {
         if (!this.canMove) return;
         this.canMove = false;
 
-        let message = "ACT 1 COMPLETE.\nASCENT ACHIEVED.";
-        if (this.score === this.totalCoins) {
-            message = "PERFECT ASCENT!\nALL COINS COLLECTED.\n" + message;
+        // Character vanishes
+        this.player.setVisible(false);
+        this.player.setActive(false);
+        this.player.setVelocity(0, 0);
+
+        if (this.playerShadowGlow) {
+            this.playerShadowGlow.setVisible(false);
         }
 
-        this.narrativeText.setText(message).setAlpha(1);
+        const { width, height } = this.scale;
+        const completeContainer = this.add.container(0, 0).setScrollFactor(0).setDepth(400);
+
+        // Semi-transparent overlay
+        const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.85);
+        completeContainer.add(overlay);
+
+        let greeting = "VICTORY! YOU HAVE ASCENDED.";
+        if (this.score === this.totalCoins) {
+            greeting = "FLAWLESS ASCENT! ALL COINS COLLECTED.";
+        }
+
+        // Greeting text
+        const title = this.add.text(width / 2, height / 2 - 80, greeting, {
+            fontFamily: 'Courier',
+            fontSize: '32px',
+            color: '#00ff88',
+            fontStyle: 'bold',
+            align: 'center',
+            wordWrap: { width: width - 100 }
+        }).setOrigin(0.5);
+        completeContainer.add(title);
+
+        // Subtext
+        const subtext = this.add.text(width / 2, height / 2 + 20, "Level 1 Complete.", {
+            fontFamily: 'Courier',
+            fontSize: '24px',
+            color: '#ffffff'
+        }).setOrigin(0.5);
+        completeContainer.add(subtext);
+
+        // Restart Prompt
+        const restartBtn = this.add.text(width / 2, height / 2 + 100, 'CLICK HERE TO RESTART', {
+            fontFamily: 'Courier',
+            fontSize: '28px',
+            color: '#ffdd00',
+            fontStyle: 'bold'
+        }).setOrigin(0.5);
+
+        restartBtn.setInteractive({ useHandCursor: true });
+        restartBtn.on('pointerover', () => restartBtn.setScale(1.1).setColor('#ffffff'));
+        restartBtn.on('pointerout', () => restartBtn.setScale(1.0).setColor('#ffdd00'));
+        restartBtn.on('pointerdown', () => {
+            this.scene.restart();
+        });
+
+        completeContainer.add(restartBtn);
+
+        // Animation for the menu
+        completeContainer.setAlpha(0);
         this.tweens.add({
-            targets: this.cameras.main,
-            alpha: 0,
-            duration: 2000,
-            onComplete: () => {
-                this.scene.restart();
-            }
+            targets: completeContainer,
+            alpha: 1,
+            duration: 800,
+            ease: 'Power2'
         });
     }
 
