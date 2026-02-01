@@ -1,6 +1,5 @@
 import { Scene } from 'phaser';
 import { Player } from '../objects/Player';
-import { Hazard } from '../objects/Hazard';
 import { Enforcer } from '../objects/Enforcer';
 
 // Extended Enforcer with detection radius and stealth awareness
@@ -181,7 +180,7 @@ class Checkpoint {
         this.glow.setFillStyle(0xffffff, 0.5);
 
         // Play checkpoint sound effect
-        this.playCheckpointSound(scene);
+        (scene as any).playCheckpointSound();
 
         // Flash effect
         scene.cameras.main.flash(200, 0, 255, 136, false);
@@ -197,42 +196,6 @@ class Checkpoint {
             ease: 'Cubic.easeOut',
             onComplete: () => flash.destroy()
         });
-    }
-
-    private playCheckpointSound(scene: Scene) {
-        // Create a resonant checkpoint activation sound using Web Audio API
-        const soundManager = scene.sound as any;
-        const audioContext = soundManager.context as AudioContext;
-        if (!audioContext) return;
-
-        const oscillator = audioContext.createOscillator();
-        const secondOscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-
-        oscillator.connect(gainNode);
-        secondOscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-
-        // Resonant ascending chime (C5 to G5 + C6)
-        const now = audioContext.currentTime;
-        oscillator.frequency.setValueAtTime(523.25, now); // C5
-        oscillator.frequency.exponentialRampToValueAtTime(783.99, now + 0.1); // G5
-        oscillator.frequency.exponentialRampToValueAtTime(1046.5, now + 0.3); // C6
-
-        secondOscillator.frequency.setValueAtTime(261.63, now); // C4 (Body)
-        secondOscillator.frequency.exponentialRampToValueAtTime(523.25, now + 0.3); // C5
-
-        // Volume envelope with a nice decay
-        gainNode.gain.setValueAtTime(0.1, now); // Slightly louder than 0.05 but quieter than 0.4
-        gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
-
-        oscillator.type = 'sine';
-        secondOscillator.type = 'sine';
-
-        oscillator.start(now);
-        secondOscillator.start(now);
-        oscillator.stop(now + 0.6);
-        secondOscillator.stop(now + 0.6);
     }
 }
 
@@ -626,11 +589,68 @@ export class LarvaDisposalPit extends Scene {
         }
     }
 
+    public playCheckpointSound() {
+        const soundManager = this.sound as any;
+        const audioContext = soundManager.context as AudioContext;
+        if (!audioContext) return;
+
+        const oscillator = audioContext.createOscillator();
+        const secondOscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.connect(gainNode);
+        secondOscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        const now = audioContext.currentTime;
+        oscillator.frequency.setValueAtTime(523.25, now);
+        oscillator.frequency.exponentialRampToValueAtTime(783.99, now + 0.1);
+        oscillator.frequency.exponentialRampToValueAtTime(1046.5, now + 0.3);
+
+        secondOscillator.frequency.setValueAtTime(261.63, now);
+        secondOscillator.frequency.exponentialRampToValueAtTime(523.25, now + 0.3);
+
+        gainNode.gain.setValueAtTime(0.1, now);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+
+        oscillator.type = 'sine';
+        secondOscillator.type = 'sine';
+
+        oscillator.start(now);
+        secondOscillator.start(now);
+        oscillator.stop(now + 0.6);
+        secondOscillator.stop(now + 0.6);
+    }
+
+    public playBeepSound() {
+        const soundManager = this.sound as any;
+        const audioContext = soundManager.context as AudioContext;
+        if (!audioContext) return;
+
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        const now = audioContext.currentTime;
+        oscillator.frequency.setValueAtTime(220, now);
+        oscillator.frequency.linearRampToValueAtTime(110, now + 0.1);
+
+        gainNode.gain.setValueAtTime(0.15, now);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+
+        oscillator.type = 'square';
+        oscillator.start(now);
+        oscillator.stop(now + 0.1);
+    }
+
     takeDamage(amount: number = 1) {
         if (this.isInvulnerable) return;
 
         this.hp = Math.max(0, this.hp - amount);
         this.updateHPText();
+        this.playBeepSound();
 
         // Flash player red
         this.player.setTint(0xff0000);
@@ -964,6 +984,9 @@ export class LarvaDisposalPit extends Scene {
             this.hasShadowMask = true;
             this.narrativeText.setText(`SHADOW MASK OBTAINED.\\nBLEND WITH DARKNESS.\\nAUTO-HEALING ACTIVATED.`).setAlpha(1);
             this.maskIndicator.setText('■ SHADOW MASK').setColor('#000000');
+
+            // Play checkpoint sound for mask as well
+            this.playCheckpointSound();
 
             // Particle effect
             const particles = this.add.particles(x, y, 'mask', {

@@ -8,7 +8,7 @@ export class Enforcer extends Phaser.Physics.Arcade.Sprite {
     private axis: 'x' | 'y';
 
     constructor(scene: Scene, x: number, y: number, range: number, axis: 'x' | 'y' = 'x') {
-        super(scene, x, y, 'sprite1'); 
+        super(scene, x, y, 'flying_dem');
 
         scene.add.existing(this);
         scene.physics.add.existing(this);
@@ -24,11 +24,10 @@ export class Enforcer extends Phaser.Physics.Arcade.Sprite {
             this.setVelocityY(this.moveSpeed);
         }
 
-        this.setDisplaySize(80, 80); 
-        this.setTint(0xff0000); 
-        
+        this.setDisplaySize(100, 100);
+        // No tint - use original colors        
         const body = this.body as Phaser.Physics.Arcade.Body;
-        body.setAllowGravity(false); 
+        body.setAllowGravity(false);
         body.setImmovable(true);
         body.setSize(60, 60);
     }
