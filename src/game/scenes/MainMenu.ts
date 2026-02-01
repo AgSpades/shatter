@@ -21,6 +21,10 @@ export class MainMenu extends Scene {
     canNavigate: boolean = true;
     enterKey: Phaser.Input.Keyboard.Key | null = null;
     spaceKey: Phaser.Input.Keyboard.Key | null = null;
+    settingsMenu: GameObjects.Container | null = null;
+    isSettingsOpen: boolean = false;
+    settingsOptions: { text: GameObjects.Text, key: string }[] = [];
+    settingsSelectedIndex: number = 0;
 
     constructor() {
         super('MainMenu');
@@ -71,6 +75,10 @@ export class MainMenu extends Scene {
             {
                 text: 'LOAD GAME',
                 action: () => this.loadGame()
+            },
+            {
+                text: 'SETTINGS',
+                action: () => this.openSettings()
             },
             {
                 text: 'EXIT',
@@ -137,13 +145,23 @@ export class MainMenu extends Scene {
 
         // Navigate menu
         if (this.cursors && Phaser.Input.Keyboard.JustDown(this.cursors.up)) {
-            this.selectedIndex = (this.selectedIndex - 1 + this.menuOptions.length) % this.menuOptions.length;
-            this.updateMenuDisplay();
+            if (this.isSettingsOpen) {
+                this.settingsSelectedIndex = (this.settingsSelectedIndex - 1 + this.settingsOptions.length) % this.settingsOptions.length;
+                this.updateSettingsDisplay();
+            } else {
+                this.selectedIndex = (this.selectedIndex - 1 + this.menuOptions.length) % this.menuOptions.length;
+                this.updateMenuDisplay();
+            }
             this.canNavigate = false;
             this.time.delayedCall(150, () => this.canNavigate = true);
         } else if (this.cursors && Phaser.Input.Keyboard.JustDown(this.cursors.down)) {
-            this.selectedIndex = (this.selectedIndex + 1) % this.menuOptions.length;
-            this.updateMenuDisplay();
+            if (this.isSettingsOpen) {
+                this.settingsSelectedIndex = (this.settingsSelectedIndex + 1) % this.settingsOptions.length;
+                this.updateSettingsDisplay();
+            } else {
+                this.selectedIndex = (this.selectedIndex + 1) % this.menuOptions.length;
+                this.updateMenuDisplay();
+            }
             this.canNavigate = false;
             this.time.delayedCall(150, () => this.canNavigate = true);
         }
@@ -151,8 +169,128 @@ export class MainMenu extends Scene {
         // Activate menu option
         if ((this.enterKey && Phaser.Input.Keyboard.JustDown(this.enterKey)) ||
             (this.spaceKey && Phaser.Input.Keyboard.JustDown(this.spaceKey))) {
-            this.menuOptions[this.selectedIndex].action();
+            if (this.isSettingsOpen) {
+                this.handleSettingsSelection();
+            } else {
+                this.menuOptions[this.selectedIndex].action();
+            }
         }
+    }
+
+    private handleSettingsSelection() {
+        const option = this.settingsOptions[this.settingsSelectedIndex];
+        if (option.key === 'EXIT') {
+            this.closeSettings();
+        } else {
+            const current = this.game.registry.get(option.key);
+            this.game.registry.set(option.key, !current);
+            this.saveSettings();
+            this.updateSettingsDisplay();
+
+            // Apply music change immediately
+            if (option.key === 'musicEnabled') {
+                const storyMusic = this.sound.get('story-music');
+                if (!this.game.registry.get('musicEnabled')) {
+                    if (storyMusic) storyMusic.stop();
+                    this.sound.stopAll();
+                } else if (!storyMusic || !storyMusic.isPlaying) {
+                    if (storyMusic) {
+                        storyMusic.play();
+                    } else {
+                        this.sound.play('story-music', { loop: true, volume: 0.5 });
+                    }
+                }
+            }
+        }
+    }
+
+    private openSettings() {
+        this.isSettingsOpen = true;
+        this.canNavigate = false;
+        this.selectedIndex = -1;
+        this.updateMenuDisplay();
+
+        const { width, height } = this.scale;
+        this.settingsMenu = this.add.container(0, 0).setDepth(200);
+
+        const overlay = this.add.rectangle(width / 2, height / 2, 400, 300, 0x000000, 0.9);
+        overlay.setStrokeStyle(2, 0xffffff);
+        this.settingsMenu.add(overlay);
+
+        const title = this.add.text(width / 2, height / 2 - 100, 'SETTINGS', {
+            fontFamily: 'Courier',
+            fontSize: '32px',
+            color: '#ffffff',
+            fontStyle: 'bold'
+        }).setOrigin(0.5);
+        this.settingsMenu.add(title);
+
+        const options = [
+            { label: 'MUSIC', key: 'musicEnabled' },
+            { label: 'SOUND', key: 'soundEnabled' },
+            { label: 'BACK', key: 'EXIT' }
+        ];
+
+        this.settingsOptions = [];
+        const startY = height / 2 - 20;
+        const spacing = 60;
+
+        options.forEach((opt, index) => {
+            const text = this.add.text(width / 2, startY + (index * spacing), '', {
+                fontFamily: 'Courier',
+                fontSize: '24px',
+                color: '#888888'
+            }).setOrigin(0.5).setInteractive();
+
+            text.on('pointerdown', () => {
+                this.settingsSelectedIndex = index;
+                this.handleSettingsSelection();
+            });
+
+            this.settingsMenu?.add(text);
+            this.settingsOptions.push({ text, key: opt.key });
+        });
+
+        this.settingsSelectedIndex = 0;
+        this.updateSettingsDisplay();
+        this.time.delayedCall(200, () => this.canNavigate = true);
+    }
+
+    private updateSettingsDisplay() {
+        this.settingsOptions.forEach((opt, index) => {
+            let label = opt.key === 'EXIT' ? 'BACK' : (opt.key === 'musicEnabled' ? 'MUSIC' : 'SOUND');
+            if (opt.key !== 'EXIT') {
+                const enabled = this.game.registry.get(opt.key);
+                label += `: ${enabled ? 'ON' : 'OFF'}`;
+            }
+
+            opt.text.setText(label);
+
+            if (index === this.settingsSelectedIndex) {
+                opt.text.setColor('#ffffff').setFontStyle('bold');
+            } else {
+                opt.text.setColor('#888888').setFontStyle('normal');
+            }
+        });
+    }
+
+    private closeSettings() {
+        if (this.settingsMenu) {
+            this.settingsMenu.destroy();
+            this.settingsMenu = null;
+        }
+        this.isSettingsOpen = false;
+        this.settingsOptions = [];
+        this.selectedIndex = 2; // Return to Settings option
+        this.updateMenuDisplay();
+    }
+
+    private saveSettings() {
+        const settings = {
+            music: this.game.registry.get('musicEnabled'),
+            sound: this.game.registry.get('soundEnabled')
+        };
+        localStorage.setItem('shatter_settings', JSON.stringify(settings));
     }
 
     private updateMenuDisplay() {

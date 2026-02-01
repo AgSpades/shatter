@@ -264,6 +264,7 @@ class Coin {
     }
 
     private playCoinSound(scene: Scene) {
+        if (!scene.game.registry.get('soundEnabled')) return;
         // Create a pleasant coin collection sound using Web Audio API
         const soundManager = scene.sound as any;
         const audioContext = soundManager.context as AudioContext;
@@ -332,6 +333,10 @@ export class LarvaDisposalPit extends Scene {
     private escKey: Phaser.Input.Keyboard.Key | null = null;
     private woodsMusic: Phaser.Sound.BaseSound;
     private darknessOverlay: Phaser.GameObjects.Rectangle;
+    private isPauseSettingsOpen: boolean = false;
+    private pauseSettingsOptions: { text: Phaser.GameObjects.Text, key: string }[] = [];
+    private pauseSettingsSelectedIndex: number = 0;
+    private pauseSettingsMenu: Phaser.GameObjects.Container | null = null;
 
     // Map Config
     private readonly GRID_W = 30;
@@ -415,7 +420,9 @@ export class LarvaDisposalPit extends Scene {
 
         // Play woods ambient music
         this.woodsMusic = this.sound.add('woods-music', { loop: true, volume: 0.3 });
-        this.woodsMusic.play();
+        if (this.game.registry.get('musicEnabled')) {
+            this.woodsMusic.play();
+        }
 
         // --- UI Setup (must be before collectibles) ---
         this.setupUI();
@@ -599,6 +606,7 @@ export class LarvaDisposalPit extends Scene {
     }
 
     public playCheckpointSound() {
+        if (!this.game.registry.get('soundEnabled')) return;
         const soundManager = this.sound as any;
         const audioContext = soundManager.context as AudioContext;
         if (!audioContext) return;
@@ -632,6 +640,7 @@ export class LarvaDisposalPit extends Scene {
     }
 
     public playBeepSound() {
+        if (!this.game.registry.get('soundEnabled')) return;
         const soundManager = this.sound as any;
         const audioContext = soundManager.context as AudioContext;
         if (!audioContext) return;
@@ -1317,6 +1326,7 @@ export class LarvaDisposalPit extends Scene {
         const options = [
             { text: 'RESUME', action: () => this.resumeGame() },
             { text: 'SAVE GAME', action: () => this.saveGame() },
+            { text: 'SETTINGS', action: () => this.openPauseSettings() },
             { text: 'EXIT TO MENU', action: () => this.exitToMenu() }
         ];
 
@@ -1360,23 +1370,6 @@ export class LarvaDisposalPit extends Scene {
         this.pauseMenuOptions = [];
     }
 
-    private updatePauseMenu() {
-        if (this.cursors) {
-            if (Phaser.Input.Keyboard.JustDown(this.cursors.up)) {
-                this.pauseSelectedIndex = (this.pauseSelectedIndex - 1 + this.pauseMenuOptions.length) % this.pauseMenuOptions.length;
-                this.updatePauseMenuDisplay();
-            } else if (Phaser.Input.Keyboard.JustDown(this.cursors.down)) {
-                this.pauseSelectedIndex = (this.pauseSelectedIndex + 1) % this.pauseMenuOptions.length;
-                this.updatePauseMenuDisplay();
-            }
-
-            if (Phaser.Input.Keyboard.JustDown(this.cursors.space) ||
-                (this.input.keyboard && Phaser.Input.Keyboard.JustDown(this.input.keyboard.addKey('ENTER')))) {
-                this.pauseMenuOptions[this.pauseSelectedIndex].action();
-            }
-        }
-    }
-
     private updatePauseMenuDisplay() {
         this.pauseMenuOptions.forEach((option, index) => {
             if (index === this.pauseSelectedIndex) {
@@ -1385,6 +1378,134 @@ export class LarvaDisposalPit extends Scene {
                 option.text.setColor('#888888').setFontSize('24px').setFontStyle('normal');
             }
         });
+    }
+
+    private openPauseSettings() {
+        this.isPauseSettingsOpen = true;
+        this.pauseMenu?.setVisible(false);
+
+        const { width, height } = this.scale;
+        this.pauseSettingsMenu = this.add.container(0, 0).setScrollFactor(0).setDepth(400);
+
+        const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.9);
+        this.pauseSettingsMenu.add(overlay);
+
+        const title = this.add.text(width / 2, height / 2 - 120, 'SETTINGS', {
+            fontFamily: 'Courier', fontSize: '48px', color: '#ffffff', fontStyle: 'bold'
+        }).setOrigin(0.5);
+        this.pauseSettingsMenu.add(title);
+
+        const options = [
+            { label: 'MUSIC', key: 'musicEnabled' },
+            { label: 'SOUND', key: 'soundEnabled' },
+            { label: 'BACK', key: 'EXIT' }
+        ];
+
+        this.pauseSettingsOptions = [];
+        const startY = height / 2 - 20;
+        const spacing = 60;
+
+        options.forEach((opt, index) => {
+            const text = this.add.text(width / 2, startY + (index * spacing), '', {
+                fontFamily: 'Courier', fontSize: '28px', color: '#888888'
+            }).setOrigin(0.5).setInteractive();
+
+            text.on('pointerdown', () => {
+                this.pauseSettingsSelectedIndex = index;
+                this.handlePauseSettingsSelection();
+            });
+
+            this.pauseSettingsMenu?.add(text);
+            this.pauseSettingsOptions.push({ text, key: opt.key });
+        });
+
+        this.pauseSettingsSelectedIndex = 0;
+        this.updatePauseSettingsDisplay();
+    }
+
+    private updatePauseSettingsDisplay() {
+        this.pauseSettingsOptions.forEach((opt, index) => {
+            let label = opt.key === 'EXIT' ? 'BACK' : (opt.key === 'musicEnabled' ? 'MUSIC' : 'SOUND');
+            if (opt.key !== 'EXIT') {
+                const enabled = this.game.registry.get(opt.key);
+                label += `: ${enabled ? 'ON' : 'OFF'}`;
+            }
+
+            opt.text.setText(label);
+            if (index === this.pauseSettingsSelectedIndex) {
+                opt.text.setColor('#ffffff').setFontStyle('bold');
+            } else {
+                opt.text.setColor('#888888').setFontStyle('normal');
+            }
+        });
+    }
+
+    private handlePauseSettingsSelection() {
+        const option = this.pauseSettingsOptions[this.pauseSettingsSelectedIndex];
+        if (option.key === 'EXIT') {
+            this.closePauseSettings();
+        } else {
+            const current = this.game.registry.get(option.key);
+            this.game.registry.set(option.key, !current);
+            this.saveSettings();
+            this.updatePauseSettingsDisplay();
+
+            if (option.key === 'musicEnabled') {
+                if (!this.game.registry.get('musicEnabled')) {
+                    this.sound.stopAll();
+                } else if (this.woodsMusic && !this.woodsMusic.isPlaying) {
+                    this.woodsMusic.play();
+                }
+            }
+        }
+    }
+
+    private closePauseSettings() {
+        if (this.pauseSettingsMenu) {
+            this.pauseSettingsMenu.destroy();
+            this.pauseSettingsMenu = null;
+        }
+        this.isPauseSettingsOpen = false;
+        this.pauseMenu?.setVisible(true);
+    }
+
+    private saveSettings() {
+        const settings = {
+            music: this.game.registry.get('musicEnabled'),
+            sound: this.game.registry.get('soundEnabled')
+        };
+        localStorage.setItem('shatter_settings', JSON.stringify(settings));
+    }
+
+    private updatePauseMenu() {
+        if (this.cursors) {
+            if (Phaser.Input.Keyboard.JustDown(this.cursors.up)) {
+                if (this.isPauseSettingsOpen) {
+                    this.pauseSettingsSelectedIndex = (this.pauseSettingsSelectedIndex - 1 + this.pauseSettingsOptions.length) % this.pauseSettingsOptions.length;
+                    this.updatePauseSettingsDisplay();
+                } else {
+                    this.pauseSelectedIndex = (this.pauseSelectedIndex - 1 + this.pauseMenuOptions.length) % this.pauseMenuOptions.length;
+                    this.updatePauseMenuDisplay();
+                }
+            } else if (Phaser.Input.Keyboard.JustDown(this.cursors.down)) {
+                if (this.isPauseSettingsOpen) {
+                    this.pauseSettingsSelectedIndex = (this.pauseSettingsSelectedIndex + 1) % this.pauseSettingsOptions.length;
+                    this.updatePauseSettingsDisplay();
+                } else {
+                    this.pauseSelectedIndex = (this.pauseSelectedIndex + 1) % this.pauseMenuOptions.length;
+                    this.updatePauseMenuDisplay();
+                }
+            }
+
+            if (Phaser.Input.Keyboard.JustDown(this.cursors.space) ||
+                (this.input.keyboard && Phaser.Input.Keyboard.JustDown(this.input.keyboard.addKey('ENTER')))) {
+                if (this.isPauseSettingsOpen) {
+                    this.handlePauseSettingsSelection();
+                } else {
+                    this.pauseMenuOptions[this.pauseSelectedIndex].action();
+                }
+            }
+        }
     }
 
     private showCheckpointMessage(message: string) {

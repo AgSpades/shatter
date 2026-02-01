@@ -12,7 +12,9 @@ export class FullscreenPrompt extends Scene {
 
         // Play story music
         this.storyMusic = this.sound.add('story-music', { loop: true, volume: 0.5 });
-        this.storyMusic.play();
+        if (this.game.registry.get('musicEnabled')) {
+            this.storyMusic.play();
+        }
 
         // Background - lighter for better visibility
         this.add.rectangle(0, 0, width, height, 0x2a2a2d).setOrigin(0);

@@ -8,6 +8,11 @@ export class Preloader extends Scene {
     init() {
         const { width, height } = this.scale;
 
+        // Initialize settings from localStorage or defaults
+        const settings = JSON.parse(localStorage.getItem('shatter_settings') || '{"music": true, "sound": true}');
+        this.game.registry.set('musicEnabled', settings.music);
+        this.game.registry.set('soundEnabled', settings.sound);
+
         this.add.image(width / 2, height / 2, 'background').setDisplaySize(width, height);
 
         //  A simple progress bar. This is the outline of the bar.
