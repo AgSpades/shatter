@@ -36,6 +36,9 @@ export class Preloader extends Scene {
         this.load.image('coin', 'sprites/Coin.png');
         this.load.image('mask', 'sprites/Mask.png');
 
+        // Load berry logo for splash screen
+        this.load.image('berry-logo', 'berry berry_black.png');
+
         // Load walking animation frames
         for (let i = 0; i < 24; i++) {
             const frameNumber = i.toString().padStart(3, '0');

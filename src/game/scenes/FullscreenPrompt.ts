@@ -51,8 +51,7 @@ export class FullscreenPrompt extends Scene {
                 if (!this.scale.isFullscreen) {
                     this.scale.startFullscreen();
                 }
-                // Stop story music before transitioning
-                this.storyMusic.stop();
+                // Don't stop music - let it continue to SplashScreen
                 this.scene.start('SplashScreen');
             });
         }

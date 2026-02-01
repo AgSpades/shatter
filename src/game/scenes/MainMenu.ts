@@ -11,7 +11,7 @@ export class MainMenu extends Scene {
     parallaxFarTrees: GameObjects.TileSprite;
     parallaxMidTrees: GameObjects.TileSprite;
     parallaxCloseTrees: GameObjects.TileSprite;
-    
+
     background: GameObjects.Image;
     logo: GameObjects.Image;
     menuOptions: MenuOption[];
@@ -32,13 +32,13 @@ export class MainMenu extends Scene {
         // Create parallax background layers (back to front)
         this.parallaxBg = this.add.tileSprite(width / 2, height / 2, width, height, 'parallax-bg');
         this.parallaxBg.setDisplaySize(width, height);
-        
+
         this.parallaxFarTrees = this.add.tileSprite(width / 2, height / 2, width, height, 'parallax-far-trees');
         this.parallaxFarTrees.setDisplaySize(width, height);
-        
+
         this.parallaxMidTrees = this.add.tileSprite(width / 2, height / 2, width, height, 'parallax-mid-trees');
         this.parallaxMidTrees.setDisplaySize(width, height);
-        
+
         this.parallaxCloseTrees = this.add.tileSprite(width / 2, height / 2, width, height, 'parallax-close-trees');
         this.parallaxCloseTrees.setDisplaySize(width, height);
 
@@ -46,7 +46,7 @@ export class MainMenu extends Scene {
         this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.4);
 
         this.logo = this.add.image(width / 2, height / 2 - 160, 'logo');
-        
+
         // Add glow effect to logo
         this.tweens.add({
             targets: this.logo,
@@ -86,7 +86,7 @@ export class MainMenu extends Scene {
                 stroke: '#000000',
                 strokeThickness: 3
             }).setOrigin(0.5);
-            
+
             this.menuTexts.push(text);
 
             // Mouse hover
@@ -100,7 +100,7 @@ export class MainMenu extends Scene {
             text.on('pointerdown', () => {
                 option.action();
             });
-            
+
             // Stagger fade-in animation
             text.setAlpha(0);
             this.tweens.add({
@@ -128,7 +128,7 @@ export class MainMenu extends Scene {
         this.parallaxFarTrees.tilePositionX += 0.3;
         this.parallaxMidTrees.tilePositionX += 0.6;
         this.parallaxCloseTrees.tilePositionX += 1.2;
-        
+
         if (!this.canNavigate) return;
 
         // Navigate menu
@@ -153,10 +153,10 @@ export class MainMenu extends Scene {
 
     private updateMenuDisplay() {
         if (!this.menuTexts || this.menuTexts.length === 0) return;
-        
+
         this.menuTexts.forEach((text, index) => {
             if (!text || !text.active) return;
-            
+
             if (index === this.selectedIndex) {
                 text.setColor('#ffffff');
                 text.setFontSize('32px');
@@ -171,10 +171,16 @@ export class MainMenu extends Scene {
 
     private startNewGame() {
         if (!this.scene || !this.scene.isActive()) return;
-        
+
         // Clear any existing save
         localStorage.removeItem('shatter_save');
-        
+
+        // Stop story music before entering game
+        const storyMusic = this.sound.get('story-music');
+        if (storyMusic) {
+            storyMusic.stop();
+        }
+
         if (this.scale.isFullscreen) {
             this.scene.start('LarvaDisposalPit');
         } else {
@@ -185,12 +191,19 @@ export class MainMenu extends Scene {
 
     private loadGame() {
         if (!this.scene || !this.scene.isActive()) return;
-        
+
         const saveData = localStorage.getItem('shatter_save');
-        
+
         if (saveData) {
             try {
                 const data = JSON.parse(saveData);
+
+                // Stop story music before entering game
+                const storyMusic = this.sound.get('story-music');
+                if (storyMusic) {
+                    storyMusic.stop();
+                }
+
                 this.scene.start('LarvaDisposalPit', { loadSave: true, saveData: data });
             } catch (e) {
                 console.error('Failed to load save:', e);
