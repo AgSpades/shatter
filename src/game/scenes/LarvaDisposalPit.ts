@@ -761,14 +761,12 @@ export class LarvaDisposalPit extends Scene {
                 // Handle other entities
                 if (char === '=') {
                     // Platform (Thin)
-                    const plat = this.platforms.create(pos.x, pos.y - 22, undefined).setSize(this.TILE_SIZE, 20);
+                    const plat = this.platforms.create(pos.x, pos.y - 22, 'cave_floor').setSize(this.TILE_SIZE, 20);
                     plat.setDisplaySize(this.TILE_SIZE, 20);
-                    plat.setTint(0x888888);
                     plat.refreshBody();
                 } else if (char === '|') {
                     // Structure/Pipe
-                    const grate = this.add.rectangle(pos.x, pos.y, this.TILE_SIZE / 2, this.TILE_SIZE, 0x222222);
-                    grate.setStrokeStyle(2, 0x111111);
+                    const grate = this.add.tileSprite(pos.x, pos.y, this.TILE_SIZE / 2, this.TILE_SIZE, 'cave_floor');
 
                     const plat = this.platforms.create(pos.x, pos.y, undefined);
                     plat.setSize(this.TILE_SIZE, this.TILE_SIZE);
@@ -870,10 +868,8 @@ export class LarvaDisposalPit extends Scene {
         const leftPx = gridX * this.TILE_SIZE;
         const centerX = leftPx + (width / 2);
 
-        // Create Physics Body
-        // Use a rectangle with specific style
-        const plat = this.add.rectangle(centerX, centerY, width, height, 0x111111);
-        plat.setStrokeStyle(2, 0x555555); // "Hollow Knight" style dark outline?
+        // Create Visual Body using cave_floor tileSprite for textures
+        const plat = this.add.tileSprite(centerX, centerY, width, height, 'cave_floor');
 
         this.physics.add.existing(plat, true); // Static
         this.platforms.add(plat);
