@@ -45,7 +45,7 @@ export class FullscreenPrompt extends Scene {
                 if (!this.scale.isFullscreen) {
                     this.scale.startFullscreen();
                 }
-                this.scene.start('MainMenu');
+                this.scene.start('SplashScreen');
             });
         }
     }
