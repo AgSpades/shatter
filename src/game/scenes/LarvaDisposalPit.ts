@@ -385,6 +385,12 @@ export class LarvaDisposalPit extends Scene {
     private pauseSettingsSelectedIndex: number = 0;
     private pauseSettingsMenu: Phaser.GameObjects.Container | null = null;
 
+    // Mobile Controls
+    private joystickBase: Phaser.GameObjects.Arc | null = null;
+    private joystickThumb: Phaser.GameObjects.Arc | null = null;
+    private jumpButton: Phaser.GameObjects.Container | null = null;
+    private isMobile: boolean = false;
+
     // Map Config
     private readonly GRID_W = 30;
     private readonly GRID_H = 80;
@@ -498,6 +504,7 @@ export class LarvaDisposalPit extends Scene {
 
         // --- Intro ---
         this.setupIntro();
+        this.setupMobileControls();
 
         // --- Load Save Data (if any) ---
         const sceneData = this.scene.settings.data as any;
@@ -629,6 +636,59 @@ export class LarvaDisposalPit extends Scene {
             fontSize: '14px',
             color: '#aaaaaa',
         }).setScrollFactor(0).setDepth(200);
+    }
+
+    private setupMobileControls() {
+        this.isMobile = !this.sys.game.device.os.desktop;
+        if (!this.isMobile) return;
+
+        const { width, height } = this.scale;
+        const padding = 60;
+        const joystickX = 120;
+        const joystickY = height - 120;
+
+        // Joystick Base
+        this.joystickBase = this.add.circle(joystickX, joystickY, 80, 0x000000, 0.3)
+            .setScrollFactor(0)
+            .setDepth(500)
+            .setStrokeStyle(3, 0xffffff, 0.5);
+
+        // Joystick Thumb
+        this.joystickThumb = this.add.circle(joystickX, joystickY, 40, 0x00ff88, 0.6)
+            .setScrollFactor(0)
+            .setDepth(501);
+
+        // Jump Button
+        const jumpBtnX = width - 120;
+        const jumpBtnY = height - 120;
+
+        this.jumpButton = this.add.container(jumpBtnX, jumpBtnY).setScrollFactor(0).setDepth(500);
+        const jumpBase = this.add.circle(0, 0, 60, 0x000000, 0.3).setStrokeStyle(3, 0xffffff, 0.5);
+        const jumpText = this.add.text(0, 0, 'JUMP', { fontFamily: 'Courier', fontSize: '20px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+        this.jumpButton.add([jumpBase, jumpText]);
+
+        // Input Logic
+        this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+            if (pointer.x > width / 2) {
+                // Potential Jump
+                const dist = Phaser.Math.Distance.Between(pointer.x, pointer.y, jumpBtnX, jumpBtnY);
+                if (dist < 100) {
+                    this.player.setMobileControls(false, false, true);
+                    jumpBase.setFillStyle(0x00ff88, 0.6);
+                }
+            }
+        });
+
+        this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+            if (pointer.x > width / 2) {
+                jumpBase.setFillStyle(0x000000, 0.3);
+            }
+            // Reset joystick thumb on release
+            if (this.joystickThumb) {
+                this.joystickThumb.setPosition(joystickX, joystickY);
+            }
+            this.player.setMobileControls(false, false, false);
+        });
     }
 
     private updateCoinText() {
@@ -1225,6 +1285,27 @@ export class LarvaDisposalPit extends Scene {
     }
 
     update() {
+        // Mobile Input Processing
+        if (this.isMobile && this.joystickThumb && this.joystickBase) {
+            const pointer = this.input.activePointer;
+            if (pointer.isDown && pointer.x < this.scale.width / 2) {
+                const dist = Phaser.Math.Distance.Between(pointer.x, pointer.y, this.joystickBase.x, this.joystickBase.y);
+                const maxDist = 80;
+                const angle = Phaser.Math.Angle.Between(this.joystickBase.x, this.joystickBase.y, pointer.x, pointer.y);
+
+                const thumbDist = Math.min(dist, maxDist);
+                this.joystickThumb.x = this.joystickBase.x + Math.cos(angle) * thumbDist;
+                this.joystickThumb.y = this.joystickBase.y + Math.sin(angle) * thumbDist;
+
+                const threshold = 20;
+                const moveLeft = (pointer.x < this.joystickBase.x - threshold);
+                const moveRight = (pointer.x > this.joystickBase.x + threshold);
+
+                // Track jump state from previous frame if needed or via separate button
+                this.player.setMobileControls(moveLeft, moveRight, false);
+            }
+        }
+
         // Check for pause
         if (this.escKey && Phaser.Input.Keyboard.JustDown(this.escKey)) {
             this.togglePause();

@@ -2,10 +2,20 @@ import { Scene } from 'phaser';
 
 export class Player extends Phaser.Physics.Arcade.Sprite {
     private cursors: Phaser.Types.Input.Keyboard.CursorKeys;
+    private wasd: {
+        W: Phaser.Input.Keyboard.Key;
+        A: Phaser.Input.Keyboard.Key;
+        S: Phaser.Input.Keyboard.Key;
+        D: Phaser.Input.Keyboard.Key;
+    };
     private canDoubleJump: boolean = false;
     private isDashing: boolean = false;
     private canDash: boolean = true;
     private lastFacing: 'left' | 'right' = 'right';
+
+    private mobileLeft: boolean = false;
+    private mobileRight: boolean = false;
+    private mobileJump: boolean = false;
 
     constructor(scene: Scene, x: number, y: number) {
         super(scene, x, y, 'walk_0'); // Use first walking frame
@@ -42,6 +52,28 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     private setupInput() {
         if (this.scene.input.keyboard) {
             this.cursors = this.scene.input.keyboard.createCursorKeys();
+            this.wasd = this.scene.input.keyboard.addKeys('W,A,S,D') as any;
+        }
+    }
+
+    public setMobileControls(left: boolean, right: boolean, jump: boolean) {
+        this.mobileLeft = left;
+        this.mobileRight = right;
+        if (jump && !this.mobileJump) {
+            this.triggerJump();
+        }
+        this.mobileJump = jump;
+    }
+
+    private triggerJump() {
+        const body = this.body as Phaser.Physics.Arcade.Body;
+        const jumpStrength = -850;
+
+        if (body.touching.down) {
+            body.setVelocityY(jumpStrength);
+        } else if (this.canDoubleJump) {
+            body.setVelocityY(-600);
+            this.canDoubleJump = false;
         }
     }
 
@@ -83,15 +115,12 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     }
 
     update() {
-        if (!this.cursors) return;
-
         const body = this.body as Phaser.Physics.Arcade.Body;
 
         // If dashing, ignore other inputs
         if (this.isDashing) return;
 
         const speed = 300;
-        const jumpStrength = -850;
         const jumpCut = 0.5;
 
         // Ground Check
@@ -100,8 +129,11 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
             this.canDash = true;
         }
 
-        // Horizontal Movement
-        if (this.cursors.left.isDown) {
+        // Horizontal Movement Input Detection
+        const leftDown = (this.cursors?.left.isDown || this.wasd?.A.isDown || this.mobileLeft);
+        const rightDown = (this.cursors?.right.isDown || this.wasd?.D.isDown || this.mobileRight);
+
+        if (leftDown) {
             body.setVelocityX(-speed);
             this.lastFacing = 'left';
             this.setFlipX(true); // Visual flip
@@ -110,7 +142,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
             if (this.anims && !this.anims.isPlaying) {
                 this.play('walk');
             }
-        } else if (this.cursors.right.isDown) {
+        } else if (rightDown) {
             body.setVelocityX(speed);
             this.lastFacing = 'right';
             this.setFlipX(false);
@@ -127,26 +159,24 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
             }
         }
 
-        // Dash Input
-        if (Phaser.Input.Keyboard.JustDown(this.cursors.shift) && this.canDash) {
-            this.startDash();
-            return;
-        }
-
-        // Jump Logic
-        if (Phaser.Input.Keyboard.JustDown(this.cursors.space)) {
-            if (body.touching.down) {
-                body.setVelocityY(jumpStrength);
-            } else if (this.canDoubleJump) {
-                body.setVelocityY(-600);
-                this.canDoubleJump = false;
+        // Jump and Dash logic
+        if (this.scene.input.keyboard) {
+            // Dash Input
+            if (Phaser.Input.Keyboard.JustDown(this.cursors.shift) && this.canDash) {
+                this.startDash();
+                return;
             }
-        }
 
-        // Variable Jump Height
-        if (Phaser.Input.Keyboard.JustUp(this.cursors.space)) {
-            if (body.velocity.y < 0) {
-                body.setVelocityY(body.velocity.y * jumpCut);
+            // Jump Input
+            if (Phaser.Input.Keyboard.JustDown(this.cursors.space) || Phaser.Input.Keyboard.JustDown(this.wasd.W)) {
+                this.triggerJump();
+            }
+
+            // Variable Jump Height
+            if (Phaser.Input.Keyboard.JustUp(this.cursors.space) || Phaser.Input.Keyboard.JustUp(this.wasd.W)) {
+                if (body.velocity.y < 0) {
+                    body.setVelocityY(body.velocity.y * jumpCut);
+                }
             }
         }
     }
