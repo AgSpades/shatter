@@ -20,11 +20,11 @@ export class FullscreenPrompt extends Scene {
         this.add.rectangle(0, 0, width, height, 0x2a2a2d).setOrigin(0);
 
         // Best Experience Text
-        this.add.text(width / 2, height / 2 - 50, 'For the best experience, play in full screen.', {
+        this.add.text(width / 2, height / 2 - 50, 'Play in full screen\n\n Use Headphones \n\nFeel the Best Experience\n\n', {
             fontFamily: 'Arial',
             fontSize: 24,
             color: '#e6e0d4',
-            align: 'center'
+            align: 'center' 
         }).setOrigin(0.5);
 
         // Prompt Text
