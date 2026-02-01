@@ -32,6 +32,10 @@ export class Preloader extends Scene {
         this.load.image('logo', 'shatter_demo.png');
         this.load.image('sprite1', 'sprites/sprite1.png');
 
+        // Load coin and mask sprites
+        this.load.image('coin', 'sprites/Coin.png');
+        this.load.image('mask', 'sprites/Mask.png');
+
         // Load walking animation frames
         for (let i = 0; i < 24; i++) {
             const frameNumber = i.toString().padStart(3, '0');
