@@ -24,6 +24,9 @@ class SmartEnforcer extends Enforcer {
         super(scene, x, y, range, axis);
 
         this.scene = scene;
+        this.setScale(1.2);
+        this.play('enemy_fly');
+
         this.currentAxis = axis;
         this.pathStart = isHorizontal ? x : y;
         this.pathEnd = isHorizontal ? endX : endY;
@@ -357,6 +360,7 @@ export class LarvaDisposalPit extends Scene {
     hasShadowMask: boolean = false;
     score: number = 0;
     totalCoins: number = 0;
+    coinText: Phaser.GameObjects.Text;
     maskIndicator: Phaser.GameObjects.Text;
     hpText: Phaser.GameObjects.Text;
     hpBarBg: Phaser.GameObjects.Rectangle;
@@ -550,6 +554,7 @@ export class LarvaDisposalPit extends Scene {
                 if (!coin.collected) {
                     coin.collect(this);
                     this.score++;
+                    this.updateCoinText();
                 }
             });
         });
@@ -605,12 +610,29 @@ export class LarvaDisposalPit extends Scene {
             fontStyle: 'bold'
         }).setScrollFactor(0).setDepth(200);
 
+        // --- COIN DISPLAY ---
+        // Emoji icon for aesthetic
+        this.add.text(uiX, uiY + 40, '🪙', { fontSize: '24px' })
+            .setScrollFactor(0)
+            .setDepth(200);
+
+        this.coinText = this.add.text(uiX + 40, uiY + 42, 'COINS: 0', {
+            fontFamily: 'Courier',
+            fontSize: '18px',
+            color: '#ffdd00',
+            fontStyle: 'bold'
+        }).setScrollFactor(0).setDepth(200);
+
         // Mask indicator
         this.maskIndicator = this.add.text(uiX, uiY + 75, '', {
             fontFamily: 'Courier',
             fontSize: '14px',
             color: '#aaaaaa',
         }).setScrollFactor(0).setDepth(200);
+    }
+
+    private updateCoinText() {
+        this.coinText.setText(`COINS: ${this.score}`);
     }
 
     private updateHPText() {
@@ -912,6 +934,8 @@ export class LarvaDisposalPit extends Scene {
                 }
             }
         });
+
+        this.updateCoinText();
     }
 
     private createCheckpoints() {
@@ -1611,6 +1635,7 @@ export class LarvaDisposalPit extends Scene {
         }
 
         // Update UI
+        this.updateCoinText();
         this.updateHPText();
         if (this.hasShadowMask) {
             this.maskIndicator.setText('■ SHADOW MASK').setColor('#000000');

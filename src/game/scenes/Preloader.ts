@@ -37,7 +37,11 @@ export class Preloader extends Scene {
         this.load.image('logo', 'shatter_demo.png');
         this.load.image('sprite1', 'sprites/sprite1.png');
         this.load.image('cave_floor', 'cave_floor.png');
-        this.load.image('flying_dem', 'flying_dem.png');
+
+        // Load enemy animation frames
+        for (let i = 1; i <= 4; i++) {
+            this.load.image(`enemy_fly_${i}`, `sprites/Animation/Enemy/flying_dem${i}.png`);
+        }
 
         // Load coin and mask sprites
         this.load.image('coin', 'sprites/Coin.png');
@@ -79,6 +83,19 @@ export class Preloader extends Scene {
             key: 'walk',
             frames: walkFrames,
             frameRate: 20,
+            repeat: -1
+        });
+
+        // Create enemy flying animation
+        this.anims.create({
+            key: 'enemy_fly',
+            frames: [
+                { key: 'enemy_fly_1' },
+                { key: 'enemy_fly_2' },
+                { key: 'enemy_fly_3' },
+                { key: 'enemy_fly_4' }
+            ],
+            frameRate: 8,
             repeat: -1
         });
 
