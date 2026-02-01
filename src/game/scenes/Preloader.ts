@@ -38,6 +38,7 @@ export class Preloader extends Scene {
         this.load.image('sprite1', 'sprites/sprite1.png');
         this.load.image('cave_floor', 'cave_floor.png');
         this.load.image('safeguard', 'SafeGaurd.png');
+        this.load.image('exit', 'Exit.png');
 
         // Load enemy animation frames
         for (let i = 1; i <= 4; i++) {

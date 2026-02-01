@@ -391,7 +391,7 @@ export class LarvaDisposalPit extends Scene {
     // Mobile Controls
     private isMobile: boolean = false;
     private virtualJoystick: VirtualJoystick | null = null;
-    private virtualJumpButton: VirtualButton | null = null;
+    private _virtualJumpButton: VirtualButton | null = null;
     private virtualDashButton: VirtualButton | null = null;
 
     // Map Config
@@ -641,29 +641,95 @@ export class LarvaDisposalPit extends Scene {
         }).setScrollFactor(0).setDepth(200);
     }
 
+    private createGlowingPortal(x: number, y: number) {
+        const portalContainer = this.add.container(x, y);
+        portalContainer.setDepth(150);
+
+        // Core glow
+        const core = this.add.circle(0, 0, 25, 0x00ffff, 0.8);
+        core.setBlendMode(Phaser.BlendModes.ADD);
+
+        // Outer rings
+        const ring1 = this.add.arc(0, 0, 40, 0, 360, false, 0x0088ff, 0.4);
+        ring1.setStrokeStyle(3, 0x00ffff, 1);
+
+        const ring2 = this.add.arc(0, 0, 55, 0, 360, false, 0x8800ff, 0.2);
+        ring2.setStrokeStyle(2, 0x8800ff, 0.8);
+
+        portalContainer.add([ring2, ring1, core]);
+
+        // Physics overlap for completion
+        const trigger = this.add.circle(x, y, 25);
+        this.physics.add.existing(trigger, true);
+        this.physics.add.overlap(this.player, trigger, () => this.handleLevelComplete());
+
+        // Animations
+        this.tweens.add({
+            targets: core,
+            scale: 1.4,
+            alpha: 0.4,
+            duration: 800,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut'
+        });
+
+        this.tweens.add({
+            targets: ring1,
+            angle: 360,
+            duration: 3000,
+            repeat: -1
+        });
+
+        this.tweens.add({
+            targets: ring2,
+            angle: -360,
+            duration: 5000,
+            repeat: -1
+        });
+
+        // Add some "particles" or swirling bits
+        for (let i = 0; i < 8; i++) {
+            const bit = this.add.rectangle(Phaser.Math.Between(-40, 40), Phaser.Math.Between(-40, 40), 3, 3, 0x00ffff);
+            bit.setAlpha(Phaser.Math.FloatBetween(0.5, 1));
+            portalContainer.add(bit);
+
+            this.tweens.add({
+                targets: bit,
+                x: { from: bit.x, to: 0 },
+                y: { from: bit.y, to: 0 },
+                alpha: 0,
+                scale: 0,
+                duration: Phaser.Math.Between(1000, 2000),
+                repeat: -1,
+                ease: 'Power2'
+            });
+        }
+    }
+
     private setupMobileControls() {
         // Detect if running on mobile device
         this.isMobile = MobileUtils.isMobile();
-        
+
         if (!this.isMobile) return;
 
         // Request landscape orientation and fullscreen
         MobileUtils.requestLandscape();
-        
+
         // Note: Fullscreen requires user gesture, so we'll attempt it but it may not work immediately
         // It will work after first user touch
-        
+
         const { width, height } = this.scale;
-        
+
         // Create virtual joystick (bottom-left)
         const joystickX = 100;
         const joystickY = height - 100;
         this.virtualJoystick = new VirtualJoystick(this, joystickX, joystickY);
-        
+
         // Create virtual jump button (bottom-right, lower)
         const jumpBtnX = width - 100;
         const jumpBtnY = height - 100;
-        this.virtualJumpButton = new VirtualButton(
+        this._virtualJumpButton = new VirtualButton(
             this,
             jumpBtnX,
             jumpBtnY,
@@ -677,7 +743,7 @@ export class LarvaDisposalPit extends Scene {
                 this.player.virtualJumpRelease();
             }
         );
-        
+
         // Create virtual dash button (bottom-right, above jump)
         const dashBtnX = width - 100;
         const dashBtnY = height - 200;
@@ -953,9 +1019,7 @@ export class LarvaDisposalPit extends Scene {
                     plat.setVisible(false);
                     plat.refreshBody();
                 } else if (char === 'X') {
-                    const exit = this.add.rectangle(pos.x, pos.y, this.TILE_SIZE, this.TILE_SIZE, 0xFFFFFF, 0.5);
-                    this.physics.add.existing(exit, true);
-                    this.physics.add.overlap(this.player, exit, () => this.handleLevelComplete());
+                    this.createGlowingPortal(pos.x, pos.y);
                 } else if (char === 'M') {
                     this.createMask(pos.x, pos.y);
                 } else if (char === 'C') {
