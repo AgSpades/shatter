@@ -39,7 +39,7 @@ export class Preloader extends Scene {
         // Load walking animation frames
         for (let i = 0; i < 24; i++) {
             const frameNumber = i.toString().padStart(3, '0');
-            this.load.image(`walk_${i}`, `sprites/Animation/0_Reaper_Man_Walking_${frameNumber}.png`);
+            this.load.image(`walk_${i}`, `sprites/Animation/walking/0_Reaper_Man_Walking_${frameNumber}.png`);
         }
     }
 
