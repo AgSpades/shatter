@@ -3,45 +3,47 @@ import { Player } from '../objects/Player';
 import { Hazard } from '../objects/Hazard';
 import { Enforcer } from '../objects/Enforcer';
 
-// Extended Enforcer to support specific start/end points and wait times
+// Extended Enforcer with detection radius and stealth awareness
 class SmartEnforcer extends Enforcer {
     private pathStart: number;
     private pathEnd: number;
     private waitTime: number;
     private isWaiting: boolean = false;
-    // private waitTimer: Phaser.Time.TimerEvent | null = null; // Unused
-    private moveDirection: number = 1; // 1 for positive, -1 for negative
+    private moveDirection: number = 1;
     private currentAxis: 'x' | 'y';
     private speed: number = 150;
+    private detectionRadius: number = 256; // 4 tiles
+    private detectionIndicator: Phaser.GameObjects.Text | null = null;
+    public declare scene: Scene;
+    private player: Player | null = null;
 
     constructor(scene: Scene, x: number, y: number, endX: number, endY: number, waitDuration: number) {
-        // Calculate range and axis for the base constructor
-        // We calculate range based on absolute difference
         const range = Math.max(Math.abs(endX - x), Math.abs(endY - y));
-        
-        // Determine axis based on which difference is larger
         const isHorizontal = Math.abs(endX - x) >= Math.abs(endY - y);
         const axis = isHorizontal ? 'x' : 'y';
 
-        // Base class Constructor expects (scene, x, y, range, axis).
-        // It initializes movement from (x, y). 
-        // We want to control the movement logic ourselves mostly, 
-        // but we need to satisfy the super call.
         super(scene, x, y, range, axis);
         
+        this.scene = scene;
         this.currentAxis = axis;
-        
-        // Store explicit start/end for our custom logic
         this.pathStart = isHorizontal ? x : y;
         this.pathEnd = isHorizontal ? endX : endY;
         this.waitTime = waitDuration * 1000;
-        
-        // Determine initial direction towards end
         this.moveDirection = (this.pathEnd >= this.pathStart) ? 1 : -1;
         
-        // Reset physics to our control
+        // Create detection indicator
+        this.detectionIndicator = scene.add.text(0, 0, '!', {
+            fontSize: '32px',
+            color: '#ff0000',
+            fontStyle: 'bold'
+        }).setOrigin(0.5).setVisible(false).setDepth(150);
+        
         this.setVelocity(0, 0); 
         this.startMoving();
+    }
+
+    setPlayer(player: Player) {
+        this.player = player;
     }
 
     startMoving() {
@@ -55,23 +57,62 @@ class SmartEnforcer extends Enforcer {
     }
 
     update() {
-        // We do NOT call super.update() because base class has simple ping-pong that fights us
-        
         if (this.isWaiting) return;
 
         const currentPos = this.currentAxis === 'x' ? this.x : this.y;
         const target = (this.moveDirection > 0) ? Math.max(this.pathStart, this.pathEnd) : Math.min(this.pathStart, this.pathEnd);
-
-        // Check distance to target
-        // We use a small threshold
         const dist = Math.abs(target - currentPos);
 
-        if (dist < 10) { // 10px threshold
-            // Snap to target to prevent drift
+        if (dist < 10) {
             if (this.currentAxis === 'x') this.x = target;
             else this.y = target;
-            
             this.stopAndTurn();
+        }
+
+        // Detection logic - directional (only what's in front)
+        if (this.player && this.detectionIndicator) {
+            const pitScene = this.scene as LarvaDisposalPit;
+            let playerInFront = false;
+            
+            // Check if player is in front based on patrol axis and direction
+            if (this.currentAxis === 'x') {
+                // Horizontal patrol
+                const forwardDist = (this.player.x - this.x) * this.moveDirection;
+                const verticalDist = Math.abs(this.player.y - this.y);
+                
+                // Player must be ahead (forwardDist > 0) within detection range
+                // Allow some vertical tolerance (128px = 2 tiles)
+                playerInFront = forwardDist > 0 && 
+                               forwardDist < this.detectionRadius && 
+                               verticalDist < 128;
+            } else {
+                // Vertical patrol
+                const forwardDist = (this.player.y - this.y) * this.moveDirection;
+                const horizontalDist = Math.abs(this.player.x - this.x);
+                
+                // Player must be ahead within detection range
+                // Allow some horizontal tolerance (128px = 2 tiles)
+                playerInFront = forwardDist > 0 && 
+                               forwardDist < this.detectionRadius && 
+                               horizontalDist < 128;
+            }
+            
+            if (playerInFront && !pitScene.isPlayerInShadow) {
+                // Player detected!
+                this.detectionIndicator.setPosition(this.x, this.y - 50);
+                this.detectionIndicator.setVisible(true);
+                
+                // Trigger death after brief indicator flash
+                if (!pitScene.isPlayerDetected) {
+                    pitScene.isPlayerDetected = true;
+                    this.scene.time.delayedCall(300, () => {
+                        pitScene.handleDeath();
+                        pitScene.isPlayerDetected = false;
+                    });
+                }
+            } else {
+                this.detectionIndicator.setVisible(false);
+            }
         }
     }
 
@@ -82,15 +123,17 @@ class SmartEnforcer extends Enforcer {
         if (this.scene) {
             this.scene.time.delayedCall(this.waitTime, () => {
                 if (!this.scene) return;
-                // Swap direction
-                // If we were going to End, new target is Start
-                // Effectively just invert direction? 
-                // Wait, if we are at End, direction was > 0 (if End > Start).
-                // Invert direction means go back.
                 this.moveDirection *= -1;
                 this.startMoving();
             });
         }
+    }
+
+    destroy() {
+        if (this.detectionIndicator) {
+            this.detectionIndicator.destroy();
+        }
+        super.destroy();
     }
 }
 
@@ -141,6 +184,119 @@ class TimedHazard {
     }
 }
 
+// Checkpoint class
+class Checkpoint {
+    sprite: Phaser.GameObjects.Arc;
+    gridX: number;
+    gridY: number;
+    isActivated: boolean = false;
+    glow: Phaser.GameObjects.Arc;
+
+    constructor(scene: Scene, x: number, y: number, gridX: number, gridY: number) {
+        this.gridX = gridX;
+        this.gridY = gridY;
+
+        // Outer glow
+        this.glow = scene.add.circle(x, y, 35, 0x00ff88, 0.3);
+        this.glow.setDepth(5);
+        
+        // Main checkpoint
+        this.sprite = scene.add.circle(x, y, 25, 0x00ff88, 0.6);
+        this.sprite.setStrokeStyle(3, 0x00ff88);
+        this.sprite.setDepth(10);
+        
+        scene.physics.add.existing(this.sprite, true);
+        
+        // Pulse animation
+        scene.tweens.add({
+            targets: [this.sprite, this.glow],
+            alpha: { from: 0.3, to: 0.8 },
+            scale: { from: 0.95, to: 1.05 },
+            duration: 1500,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut'
+        });
+    }
+
+    activate(scene: Scene) {
+        if (this.isActivated) return;
+        
+        this.isActivated = true;
+        this.sprite.setFillStyle(0xffffff, 1);
+        this.sprite.setStrokeStyle(4, 0xffffff);
+        this.glow.setFillStyle(0xffffff, 0.5);
+        
+        // Flash effect
+        scene.cameras.main.flash(200, 0, 255, 136, false);
+        
+        // Particle burst
+        const particles = scene.add.particles(this.sprite.x, this.sprite.y, 'sprite1', {
+            speed: { min: 50, max: 150 },
+            scale: { start: 0.3, end: 0 },
+            alpha: { start: 1, end: 0 },
+            lifespan: 600,
+            tint: 0x00ff88,
+            quantity: 15
+        });
+        
+        scene.time.delayedCall(700, () => particles.destroy());
+    }
+}
+
+// Score Gem collectible
+class ScoreGem {
+    sprite: Phaser.GameObjects.Sprite;
+    collected: boolean = false;
+
+    constructor(scene: Scene, x: number, y: number) {
+        this.sprite = scene.add.sprite(x, y, 'sprite1')
+            .setDisplaySize(30, 30)
+            .setTint(0xffdd00)
+            .setDepth(15);
+        
+        scene.physics.add.existing(this.sprite, true);
+        
+        // Bob animation
+        scene.tweens.add({
+            targets: this.sprite,
+            y: y - 15,
+            duration: 1200,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut'
+        });
+        
+        // Rotate
+        scene.tweens.add({
+            targets: this.sprite,
+            angle: 360,
+            duration: 3000,
+            repeat: -1,
+            ease: 'Linear'
+        });
+    }
+
+    collect(scene: Scene) {
+        if (this.collected) return;
+        
+        this.collected = true;
+        
+        // Particle effect
+        const particles = scene.add.particles(this.sprite.x, this.sprite.y, 'sprite1', {
+            speed: { min: 80, max: 200 },
+            scale: { start: 0.4, end: 0 },
+            alpha: { start: 1, end: 0 },
+            lifespan: 500,
+            tint: 0xffdd00,
+            quantity: 12
+        });
+        
+        scene.time.delayedCall(600, () => particles.destroy());
+        this.sprite.destroy();
+    }
+}
+
 export class LarvaDisposalPit extends Scene {
     camera: Phaser.Cameras.Scene2D.Camera;
     player: Player;
@@ -150,6 +306,18 @@ export class LarvaDisposalPit extends Scene {
     hazards: Phaser.GameObjects.Group; 
     enforcers: Phaser.GameObjects.Group;
     timedHazards: TimedHazard[] = [];
+    checkpoints: Checkpoint[] = [];
+    scoreGems: ScoreGem[] = [];
+    shadowZones: Phaser.GameObjects.Rectangle[] = [];
+    lastCheckpoint: { x: number, y: number } | null = null;
+    isPlayerInShadow: boolean = false;
+    isPlayerDetected: boolean = false;
+    hasShadowMask: boolean = false;
+    score: number = 0;
+    totalGems: number = 0;
+    scoreText: Phaser.GameObjects.Text;
+    maskIndicator: Phaser.GameObjects.Text;
+    playerShadowGlow: Phaser.GameObjects.Arc | null = null;
     private canMove: boolean = false;
     
     // Map Config
@@ -179,18 +347,26 @@ export class LarvaDisposalPit extends Scene {
         this.physics.world.setBounds(0, 0, worldWidth, worldHeight);
 
         // --- Player Setup ---
-        // Player Start at P (Grid 2, 2 -> 3rd col, 3rd row from bottom)
-        // Correct P is column 3 (index 2? '#..P'), Y=02.
-        // gridToWorld(3, 2)
         const startP = this.gridToWorld(3, 2);
         this.player = new Player(this, startP.x, startP.y);
+        this.lastCheckpoint = { x: startP.x, y: startP.y };
+
+        // Player shadow glow effect
+        this.playerShadowGlow = this.add.circle(this.player.x, this.player.y, 60, 0x000000, 0.6);
+        this.playerShadowGlow.setDepth(8);
+        this.playerShadowGlow.setVisible(false);
+
+        // --- UI Setup (must be before collectibles) ---
+        this.setupUI();
 
         // --- Layout Parsing ---
         this.createLevel();
+        this.createCollectibles();
 
         // --- Entities & Triggers ---
         this.createEnemies();
         this.createTriggers();
+        this.createCheckpoints();
         this.createLighting();
 
         // --- Controls ---
@@ -217,8 +393,75 @@ export class LarvaDisposalPit extends Scene {
 
         // Enforcer overlap
         this.physics.add.overlap(this.player, this.enforcers, () => {
-            this.handleDeath();
+            if (!this.isPlayerInShadow || !this.hasShadowMask) {
+                this.handleDeath();
+            }
         });
+
+        // Checkpoint collision
+        this.checkpoints.forEach(checkpoint => {
+            this.physics.add.overlap(this.player, checkpoint.sprite, () => {
+                if (!checkpoint.isActivated) {
+                    checkpoint.activate(this);
+                    this.lastCheckpoint = { 
+                        x: checkpoint.sprite.x, 
+                        y: checkpoint.sprite.y 
+                    };
+                }
+            });
+        });
+
+        // Gem collection
+        this.scoreGems.forEach(gem => {
+            this.physics.add.overlap(this.player, gem.sprite, () => {
+                if (!gem.collected) {
+                    gem.collect(this);
+                    this.score++;
+                    this.updateScoreText();
+                }
+            });
+        });
+
+        // Shadow zone detection
+        this.shadowZones.forEach(zone => {
+            this.physics.add.overlap(this.player, zone, () => {
+                if (this.hasShadowMask) {
+                    this.isPlayerInShadow = true;
+                }
+            });
+        });
+
+        // Pass player reference to enforcers
+        this.enforcers.children.entries.forEach((enforcer: any) => {
+            if (enforcer.setPlayer) {
+                enforcer.setPlayer(this.player);
+            }
+        });
+    }
+
+    private setupUI() {
+        // Score display
+        this.scoreText = this.add.text(20, 20, 'GEMS: 0/0', {
+            fontFamily: 'Courier',
+            fontSize: '18px',
+            color: '#ffdd00',
+            fontStyle: 'bold'
+        })
+        .setScrollFactor(0)
+        .setDepth(200);
+
+        // Mask indicator
+        this.maskIndicator = this.add.text(20, 50, '', {
+            fontFamily: 'Courier',
+            fontSize: '16px',
+            color: '#888888',
+        })
+        .setScrollFactor(0)
+        .setDepth(200);
+    }
+
+    private updateScoreText() {
+        this.scoreText.setText(`GEMS: ${this.score}/${this.totalGems}`);
     }
 
     private gridToWorld(gridX: number, gridY: number): { x: number, y: number } {
@@ -238,94 +481,89 @@ export class LarvaDisposalPit extends Scene {
     }
 
     private createLevel() {
-        // Act 1 Tilemap with gaps for traversal
-        // Top to Bottom
+        // REDESIGNED MAP - Fully traversable with bridge platforms and proper gaps
         const mapData = [
             "##############################", // Y=79
             "#.............X..............#", // Y=78 - EXIT
-            "############....#############", // Y=77 - FIXED: Opened gap in ceiling to allow exit
-            "#.......................#....#", // Y=76
-            "#.....................S.#....#", // Y=75
-            "#######==#######==#####.#....#", // Y=74
-            "#............S........#.#....#", // Y=73
-            "#...................R.#.#....#", // Y=72
-            "######==#############==#....#", // Y=71
-            "#......................#....#", // Y=70
-            "#.....S................#....#", // Y=69
-            "#.......R..............#....#", // Y=68
-            "#######==###############....#", // Y=67
-            "#.......................#...#", // Y=66
-            "#.......................#...#", // Y=65
-            "########################....#", // Y=64 - Gap is on far right
-            "#.......................===.#", // Y=63 - FIXED: Added step to reach the gap above
-            "#..............===..........#", // Y=62
-            "#...........................#", // Y=61
-            "#...........................#", // Y=60
-            "#.....===...................#", // Y=59
-            "#...........................#", // Y=58
+            "############....#############", // Y=77
+            "#.........C..........===....#", // Y=76 - Checkpoint 4 + bridge
+            "#..........====.......S.....#", // Y=75 - Bridge + Shadow
+            "#.......===......====.......#", // Y=74 - Bridge platforms
+            "#....g........S.............#", // Y=73 - Gem + Shadow
+            "#..........====.....==......#", // Y=72 - Bridge platforms
+            "#...g...........g...........#", // Y=71 - Gems
+            "#......====.........====....#", // Y=70 - Bridge platforms
+            "#.....S...........g.........#", // Y=69 - Shadow + gem
+            "#..........====.....====....#", // Y=68 - Bridge platforms
+            "#...g...........g...........#", // Y=67 - Gems
+            "########===.........====....#", // Y=66 - Platform + bridge
+            "#..........g........===.....#", // Y=65 - Gem
+            "###########===..............#", // Y=64 - Step up
+            "#..............===..g.......#", // Y=63
+            "#..g........................#", // Y=62
+            "#...........g...............#", // Y=61
+            "#.....===...................#", // Y=60
+            "#...........................#", // Y=59
+            "#..g........................#", // Y=58
             "#....................===....#", // Y=57
-            "#...........................#", // Y=56
-            "#........===................#", // Y=55
-            "#.............DM............#", // Y=54
-            "####........................#", // Y=53
-            "####........................#", // Y=52
+            "#............g..............#", // Y=56
+            "#........===.....===........#", // Y=55 - Platform under mask
+            "#.......g.....DM.....g......#", // Y=54 - SHADOW MASK + gems
+            "####======.........======...#", // Y=53 - Solid platforms
+            "####..........g.............#", // Y=52
             "#...........................#", // Y=51
-            "#...........................#", // Y=50
-            "#...........................#", // Y=49
-            "############....#############", // Y=48 - Entry to upper shaft
-            "#..........#....#...........#", // Y=47
+            "#...........g...............#", // Y=50
+            "#......===..................#", // Y=49 - SANCTUARY ZONE D
+            "############....#############", // Y=48 - Checkpoint 3
+            "#..........#....#.....g.....#", // Y=47
             "#..........#....#...........#", // Y=46
-            "#########..#....#..##########", // Y=45
-            "#..........#....#...S.......#", // Y=44
+            "#.===......#....#.===.......#", // Y=45 - Side platforms
+            "#..g.......#....#...S..g....#", // Y=44 - Shadow + gems
             "#..........#....#..====.....#", // Y=43
-            "#..........#....#...........#", // Y=42
-            "#########..#....#..##########", // Y=41
-            "#..................R........#", // Y=40
-            "########...#..=.#..##########", // Y=39
-            "#.........=#....#...........#", // Y=38
-            "#..........#....#...........#", // Y=37
-            "#..========#....#..##########", // Y=36
-            "#........R.#....#...........#", // Y=35
-            "#########..#....#..##########", // Y=34
-            "#...............#...........#", // Y=33
-            "############|..|#############", // Y=32 
-            "#.............=.............#", // Y=31
-            "#...........................#", // Y=30
+            "#.===......#.==.#...........#", // Y=42 - Intermediate zigzag
+            "####.......#....#.......====", // Y=41
+            "#..........===g===..........#", // Y=40 - Center platform + gem
+            "########...#....#...########", // Y=39 - Intermediate platform
+            "#.........=#.==.#...........#", // Y=38
+            "#..g.......#....#.......g...#", // Y=37 - Gems
+            "#..========#....#==.........#", // Y=36
+            "#........R.#....#...........#", // Y=35 - Vent marker
+            "#########..#....#..#########", // Y=34
+            "#..g...........g#...........#", // Y=33 - GRINDER ZONE C
+            "############....#############", // Y=32 - Wider shaft (4 tiles)
+            "#...........C...g...........#", // Y=31 - Checkpoint 2 + gem
+            "#..g........................#", // Y=30
             "#####..===###################", // Y=29
             "#...........................#", // Y=28
-            "#...###.....................#", // Y=27
+            "#...###...g.................#", // Y=27
             "#...........................#", // Y=26
-            "######================..#####", // Y=25
-            "#...........................#", // Y=24
-            "#.....................######", // Y=23
-            "#........S..................#", // Y=22
-            "#######===############...=..#", // Y=21
-            "#........................R..#", // Y=20
-            "########################==.##", // Y=19 - Gap is on right
-            "#...........................#", // Y=18
-            "#..................===......#", // Y=17 - FIXED: Added platform to bridge center to right
-            "###########.....#############", // Y=16 - Gap is in center
-            "#.........##...##...........#", // Y=15
-            "#.........###...#...........#", // Y=14
-            "#........###...##...........#", // Y=13
-            "#...............#...........#", // Y=12
+            "######=======.g.........#####", // Y=25
+            "#.........g.................#", // Y=24
+            "#....===.........===.....g..#", // Y=23 - Left stepping stone
+            "#........S..................#", // Y=22 - Shadow zone
+            "#######===############===...#", // Y=21
+            "#.....g........g............#", // Y=20
+            "########################==..#", // Y=19
+            "#..g........................#", // Y=18
+            "#....===........===.........#", // Y=17 - FIXED: Left platform
+            "###########.C...#############", // Y=16 - Checkpoint 1
+            "#.........##g..##...........#", // Y=15
+            "#.........###g..#...........#", // Y=14
+            "#........###.g.##...........#", // Y=13
+            "#.......g.......#...........#", // Y=12
             "############....#############", // Y=11
             "#.............#.............#", // Y=10
-            "#.........##................#", // Y=09
+            "#.........##..g.............#", // Y=09
             "#...........................#", // Y=08
-            "##################......#####", // Y=07
-            "#...........................#", // Y=06
+            "##################.g....#####", // Y=07
+            "#.............g.............#", // Y=06
             "###################...#######", // Y=05
-            "#...........................#", // Y=04
-            "#..............===..........#", // Y=03
-            "#..P........................#", // Y=02
+            "#..........g................#", // Y=04
+            "#..g...........===..........#", // Y=03
+            "#..P........................#", // Y=02 - PLAYER START
             "##############################", // Y=01
             "##############################"  // Y=00
         ];
-
-        // Graphics object for efficiently drawing terrain
-        // Currently we use simple rects for physics, but for visuals we could draw one big shape?
-        // Sticking to 1-to-1 visual/physics for now but merged.
         
         mapData.forEach((row, rowIndex) => {
             const gridY = 79 - rowIndex;
@@ -381,8 +619,72 @@ export class LarvaDisposalPit extends Scene {
                     this.createMask(pos.x, pos.y);
                 } else if (char === 'D') {
                     this.add.rectangle(pos.x, pos.y + 10, 40, 20, 0x330000).setOrigin(0.5); 
+                } else if (char === 'C') {
+                    // Checkpoint marker - handled in createCheckpoints()
+                } else if (char === 'g') {
+                    // Gem marker - handled in createCollectibles()
                 }
             }
+        });
+    }
+
+    private createCollectibles() {
+        // Parse map for gems 'g'
+        const mapData = [
+            "##############################", "#.............X..............#", "############....#############",
+            "#.........C..........===....#", "#..........====.......S.....#", "#.......===......====.......#",
+            "#....g........S.............#", "#..........====.....==......#", "#...g...........g...........#",
+            "#......====.........====....#", "#.....S...........g.........#", "#..........====.....====....#",
+            "#...g...........g...........#", "########===.........====....#", "#..........g........===.....#",
+            "###########===..............#", "#..............===..g.......#", "#..g........................#",
+            "#...........g...............#", "#.....===...................#", "#...........................#",
+            "#..g........................#", "#....................===....#", "#............g..............#",
+            "#........===.....===........#", "#.......g.....DM.....g......#", "####======.........======...#",
+            "####..........g.............#", "#...........................#", "#...........g...............#",
+            "#......===..................#", "############....#############", "#..........#....#.....g.....#",
+            "#..........#....#...........#", "#.===......#....#.===.......#", "#..g.......#....#...S..g....#",
+            "#..........#....#..====.....#", "#.===......#.==.#...........#", "####.......#....#.......====",
+            "#..........===g===..........#", "########...#....#...########", "#.........=#.==.#...........#",
+            "#..g.......#....#.......g...#", "#..========#....#==.........#", "#........R.#....#...........#",
+            "#########..#....#..#########", "#..g...........g#...........#", "############....#############",
+            "#...........C...g...........#", "#..g........................#", "#####..===###################",
+            "#...........................#", "#...###...g.................#", "#...........................#",
+            "######=======.g.........#####", "#.........g.................#", "#....===.........===.....g..#",
+            "#........S..................#", "#######===############===...#", "#.....g........g............#",
+            "########################==..#", "#..g........................#", "#....===........===.........#",
+            "###########.C...#############", "#.........##g..##...........#", "#.........###g..#...........#",
+            "#........###.g.##...........#", "#.......g.......#...........#", "############....#############",
+            "#.............#.............#", "#.........##..g.............#", "#...........................#",
+            "##################.g....#####", "#.............g.............#", "###################...#######",
+            "#..........g................#", "#..g...........===..........#", "#..P........................#",
+            "##############################", "##############################"
+        ];
+
+        mapData.forEach((row, rowIndex) => {
+            const gridY = 79 - rowIndex;
+            for (let x = 0; x < row.length; x++) {
+                if (row[x] === 'g') {
+                    const pos = this.gridToWorld(x, gridY);
+                    this.scoreGems.push(new ScoreGem(this, pos.x, pos.y));
+                    this.totalGems++;
+                }
+            }
+        });
+
+        this.updateScoreText();
+    }
+
+    private createCheckpoints() {
+        // Checkpoint locations from map 'C' markers
+        const checkpointPositions = [
+            { x: 12, y: 16 }, // Zone B entry
+            { x: 12, y: 31 }, // Zone C entry  
+            { x: 10, y: 76 }  // Zone E near exit
+        ];
+
+        checkpointPositions.forEach(pos => {
+            const worldPos = this.gridToWorld(pos.x, pos.y);
+            this.checkpoints.push(new Checkpoint(this, worldPos.x, worldPos.y, pos.x, pos.y));
         });
     }
 
@@ -415,79 +717,106 @@ export class LarvaDisposalPit extends Scene {
     }
 
     private createEnemies() {
-        // Drone 01 (Zone B - Horizontal Patroller) (6, 26) <-> (22, 26)
-        const d1Start = this.gridToWorld(6, 26);
-        const d1End = this.gridToWorld(22, 26);
+        // Relocated and optimized patrols for new layout
+        
+        // Drone 01 (Zone B - Main path) (6, 23) <-> (20, 23)
+        const d1Start = this.gridToWorld(6, 23);
+        const d1End = this.gridToWorld(20, 23);
         const d1 = new SmartEnforcer(this, d1Start.x, d1Start.y, d1End.x, d1End.y, 1.5);
         this.enforcers.add(d1);
 
-        // Drone 02 (Zone C - Gatekeeper) (12, 46) <-> (18, 46)
-        const d2Start = this.gridToWorld(12, 46);
-        const d2End = this.gridToWorld(18, 46);
+        // Drone 02 (Zone C - Shaft guard) (12, 40) <-> (18, 40)
+        const d2Start = this.gridToWorld(12, 40);
+        const d2End = this.gridToWorld(18, 40);
         const d2 = new SmartEnforcer(this, d2Start.x, d2Start.y, d2End.x, d2End.y, 1.0);
         this.enforcers.add(d2);
 
-        // Drone 03 (Zone E - Lower Horizontal) (4, 70) <-> (18, 70)
-        const d3Start = this.gridToWorld(4, 70);
-        const d3End = this.gridToWorld(18, 70);
+        // Drone 03 (Zone E - Lower horizontal) (4, 68) <-> (20, 68)
+        const d3Start = this.gridToWorld(4, 68);
+        const d3End = this.gridToWorld(20, 68);
         const d3 = new SmartEnforcer(this, d3Start.x, d3Start.y, d3End.x, d3End.y, 1.0);
         this.enforcers.add(d3);
 
-        // Drone 04 (Zone E - Right Vertical) (24, 66) <-> (24, 76)
-        const d4Start = this.gridToWorld(24, 66);
-        const d4End = this.gridToWorld(24, 76);
+        // Drone 04 (Zone E - Mid horizontal) (6, 72) <-> (20, 72)
+        const d4Start = this.gridToWorld(6, 72);
+        const d4End = this.gridToWorld(20, 72);
         const d4 = new SmartEnforcer(this, d4Start.x, d4Start.y, d4End.x, d4End.y, 1.0);
         this.enforcers.add(d4);
+
+        // Drone 05 (Zone E - Upper horizontal) (6, 75) <-> (18, 75)
+        const d5Start = this.gridToWorld(6, 75);
+        const d5End = this.gridToWorld(18, 75);
+        const d5 = new SmartEnforcer(this, d5Start.x, d5Start.y, d5End.x, d5End.y, 0.8);
+        this.enforcers.add(d5);
     }
 
     private createTriggers() {
-        // Hazard Helper
-        const addVent = (gx: number, gy: number, on: number, off: number, widthScale: number = 1.0, heightScale: number = 1.0) => {
+        const addVent = (gx: number, gy: number, on: number, off: number) => {
             const pos = this.gridToWorld(gx, gy);
-            const w = this.TILE_SIZE * widthScale;
-            const h = this.TILE_SIZE * heightScale;
-            this.timedHazards.push(new TimedHazard(this, pos.x, pos.y, w, h, on, off));
+            this.timedHazards.push(new TimedHazard(this, pos.x, pos.y, this.TILE_SIZE, this.TILE_SIZE, on, off));
             this.hazards.add(this.timedHazards[this.timedHazards.length-1].hazard);
         };
 
-        // Vent A: (24, 20). 3s ON / 3s OFF.
-        addVent(24, 20, 3, 3);
+        // Relocated vents on main path
+        addVent(12, 22, 3, 3); // Zone B center path
+        addVent(10, 35, 3, 3); // Zone C shaft
+        addVent(20, 40, 3, 3); // Zone C right
+        addVent(8, 68, 2, 2);  // Zone E lower
+        addVent(18, 72, 2, 2); // Zone E upper
 
-        // Vent B: (10, 35). 3s ON / 3s OFF.
-        addVent(10, 35, 3, 3);
-
-        // Vent C: (20, 40). 3s ON / 3s OFF.
-        addVent(20, 40, 3, 3);
-
-        // Vent D: (8, 68). 2s ON / 2s OFF.
-        addVent(8, 68, 2, 2);
-
-        // Vent E: (20, 72). 2s ON / 2s OFF.
-        addVent(20, 72, 2, 2);
-
-        // Shadow Zones
-        this.createShadowZone(10, 22);
-        this.createShadowZone(22, 44);
-        this.createShadowZone(6, 69);
-        this.createShadowZone(14, 73);
-        this.createShadowZone(22, 75);
+        // Shadow Zones (with physics)
+        this.createShadowZone(10, 22);  // Zone B
+        this.createShadowZone(22, 44);  // Zone C
+        this.createShadowZone(6, 69);   // Zone E lower
+        this.createShadowZone(14, 73);  // Zone E mid
+        this.createShadowZone(22, 75);  // Zone E upper
     }
 
     private createShadowZone(gx: number, gy: number) {
         const pos = this.gridToWorld(gx, gy);
-        // Visual dark patch
-        this.add.rectangle(pos.x, pos.y, this.TILE_SIZE, this.TILE_SIZE, 0x000000, 0.5).setDepth(10);
+        const zone = this.add.rectangle(pos.x, pos.y, this.TILE_SIZE * 1.5, this.TILE_SIZE * 1.5, 0x000000, 0.7);
+        zone.setDepth(10);
+        this.physics.add.existing(zone, true);
+        this.shadowZones.push(zone);
     }
 
     private createMask(x: number, y: number) {
-        const mask = this.add.sprite(x, y, 'sprite1').setTint(0x888888).setDisplaySize(40, 40);
+        const mask = this.add.sprite(x, y, 'sprite1').setTint(0x222222).setDisplaySize(50, 50);
         this.physics.add.existing(mask, true);
         this.tweens.add({ targets: mask, y: y - 10, duration: 1500, yoyo: true, repeat: -1 });
 
+        // Shadow aura around mask
+        const aura = this.add.circle(x, y, 70, 0x000000, 0.4).setDepth(5);
+        this.tweens.add({ 
+            targets: aura, 
+            alpha: { from: 0.2, to: 0.6 },
+            scale: { from: 0.9, to: 1.1 },
+            duration: 1500, 
+            yoyo: true, 
+            repeat: -1 
+        });
+
         this.physics.add.overlap(this.player, mask, () => {
-            this.narrativeText.setText("GREY MASK OBTAINED.").setAlpha(1);
+            this.hasShadowMask = true;
+            this.narrativeText.setText("SHADOW MASK OBTAINED.\nBLEND WITH DARKNESS.").setAlpha(1);
+            this.maskIndicator.setText('■ SHADOW MASK').setColor('#000000');
+            
+            // Particle effect
+            const particles = this.add.particles(x, y, 'sprite1', {
+                speed: { min: 100, max: 250 },
+                scale: { start: 0.5, end: 0 },
+                alpha: { start: 0.8, end: 0 },
+                lifespan: 800,
+                tint: 0x000000,
+                quantity: 25
+            });
+            
+            this.cameras.main.flash(300, 0, 0, 0, false);
             mask.destroy();
-            this.time.delayedCall(2000, () => this.narrativeText.setAlpha(0));
+            aura.destroy();
+            
+            this.time.delayedCall(600, () => particles.destroy());
+            this.time.delayedCall(2500, () => this.narrativeText.setAlpha(0));
         });
     }
 
@@ -549,38 +878,76 @@ export class LarvaDisposalPit extends Scene {
         this.canMove = true; 
     }
 
-    private handleDeath() {
+    handleDeath() {
         this.cameras.main.flash(200, 255, 0, 0);
-        const startPos = this.gridToWorld(3, 2); 
-        this.player.setPosition(startPos.x, startPos.y);
-        this.player.setVelocity(0,0);
+        
+        if (this.lastCheckpoint) {
+            this.player.setPosition(this.lastCheckpoint.x, this.lastCheckpoint.y);
+        } else {
+            const startPos = this.gridToWorld(3, 2);
+            this.player.setPosition(startPos.x, startPos.y);
+        }
+        
+        this.player.setVelocity(0, 0);
+        this.isPlayerDetected = false;
     }
 
     private handleLevelComplete() {
         if (!this.canMove) return;
         this.canMove = false;
-        this.narrativeText.setText("ACT 1 COMPLETE.\nASCENT ACHIEVED.").setAlpha(1);
+        
+        let message = "ACT 1 COMPLETE.\nASCENT ACHIEVED.";
+        if (this.score === this.totalGems) {
+            message = "PERFECT ASCENT!\nALL GEMS COLLECTED.\n" + message;
+        }
+        
+        this.narrativeText.setText(message).setAlpha(1);
         this.tweens.add({
             targets: this.cameras.main,
             alpha: 0,
             duration: 2000,
             onComplete: () => {
                 this.scene.restart();
-            } // Removed incorrect brace here
+            }
         });
     }
 
     update() {
-        if (!this.canMove) return; // Simple pause check
+        if (!this.canMove) return;
+        
+        // Reset shadow state each frame
+        this.isPlayerInShadow = false;
         
         this.player.update();
         
-        // Update smart enforcers
+        // Update shadow glow position and visibility
+        if (this.playerShadowGlow) {
+            this.playerShadowGlow.setPosition(this.player.x, this.player.y);
+            
+            // Check if player is in any shadow zone
+            let inAnyShadow = false;
+            this.shadowZones.forEach(zone => {
+                if (this.physics.overlap(this.player, zone)) {
+                    inAnyShadow = true;
+                }
+            });
+            
+            if (inAnyShadow && this.hasShadowMask) {
+                this.isPlayerInShadow = true;
+                this.playerShadowGlow.setVisible(true);
+                this.player.setAlpha(0.5); // Darken player
+            } else {
+                this.playerShadowGlow.setVisible(false);
+                this.player.setAlpha(1.0); // Normal
+            }
+        }
+        
+        // Update enforcers
         this.enforcers.children.entries.forEach((enforcer: any) => {
             if (enforcer.update) enforcer.update();
         });
 
-        // --- Camera Control (PRESERVED) ---
+        // Camera control
         const maxLookOffset = 250;
         let targetOffsetY = 0;
 
