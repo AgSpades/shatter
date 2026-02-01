@@ -6,6 +6,7 @@ import { FullscreenPrompt } from './scenes/FullscreenPrompt';
 import { LarvaDisposalPit } from './scenes/LarvaDisposalPit';
 import { AUTO, Game } from 'phaser';
 import { Preloader } from './scenes/Preloader';
+import { SplashScreen } from './scenes/SplashScreen';
 
 // Find out more information about the Game Config at:
 // https://docs.phaser.io/api-documentation/typedef/types-core#gameconfig
@@ -29,6 +30,7 @@ const config: Phaser.Types.Core.GameConfig = {
     },
     scene: [
         Boot,
+        SplashScreen,
         Preloader,
         FullscreenPrompt,
         MainMenu,

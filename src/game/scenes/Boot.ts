@@ -13,10 +13,11 @@ export class Boot extends Scene
         //  The smaller the file size of the assets, the better, as the Boot Scene itself has no preloader.
 
         this.load.image('background', 'assets/title_parallax/parallax-demon-woods-bg.png');
+        this.load.image('berry-logo', 'assets/berry berry_rbg.png');
     }
 
     create ()
     {
-        this.scene.start('Preloader');
+        this.scene.start('SplashScreen');
     }
 }
