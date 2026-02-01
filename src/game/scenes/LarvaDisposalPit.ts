@@ -102,11 +102,11 @@ class SmartEnforcer extends Enforcer {
                 this.detectionIndicator.setPosition(this.x, this.y - 50);
                 this.detectionIndicator.setVisible(true);
                 
-                // Trigger death after brief indicator flash
+                // Trigger damage after brief indicator flash
                 if (!pitScene.isPlayerDetected) {
                     pitScene.isPlayerDetected = true;
                     this.scene.time.delayedCall(300, () => {
-                        pitScene.handleDeath();
+                        pitScene.takeDamage(1);
                         pitScene.isPlayerDetected = false;
                     });
                 }
@@ -230,17 +230,17 @@ class Checkpoint {
         // Flash effect
         scene.cameras.main.flash(200, 0, 255, 136, false);
         
-        // Particle burst
-        const particles = scene.add.particles(this.sprite.x, this.sprite.y, 'sprite1', {
-            speed: { min: 50, max: 150 },
-            scale: { start: 0.3, end: 0 },
-            alpha: { start: 1, end: 0 },
-            lifespan: 600,
-            tint: 0x00ff88,
-            quantity: 15
+        // Background expanding circle effect
+        const flash = scene.add.circle(this.sprite.x, this.sprite.y, 40, 0x00ff88, 0.7);
+        flash.setDepth(5);
+        scene.tweens.add({
+            targets: flash,
+            scale: { from: 1, to: 4 },
+            alpha: { from: 0.7, to: 0 },
+            duration: 600,
+            ease: 'Cubic.easeOut',
+            onComplete: () => flash.destroy()
         });
-        
-        scene.time.delayedCall(700, () => particles.destroy());
     }
 }
 
@@ -282,17 +282,18 @@ class ScoreGem {
         
         this.collected = true;
         
-        // Particle effect
-        const particles = scene.add.particles(this.sprite.x, this.sprite.y, 'sprite1', {
-            speed: { min: 80, max: 200 },
-            scale: { start: 0.4, end: 0 },
-            alpha: { start: 1, end: 0 },
-            lifespan: 500,
-            tint: 0xffdd00,
-            quantity: 12
+        // Background flash effect
+        const flash = scene.add.circle(this.sprite.x, this.sprite.y, 80, 0xffdd00, 0.6);
+        flash.setDepth(5);
+        scene.tweens.add({
+            targets: flash,
+            scale: { from: 0.3, to: 2.5 },
+            alpha: { from: 0.8, to: 0 },
+            duration: 400,
+            ease: 'Cubic.easeOut',
+            onComplete: () => flash.destroy()
         });
         
-        scene.time.delayedCall(600, () => particles.destroy());
         this.sprite.destroy();
     }
 }
@@ -317,8 +318,17 @@ export class LarvaDisposalPit extends Scene {
     totalGems: number = 0;
     scoreText: Phaser.GameObjects.Text;
     maskIndicator: Phaser.GameObjects.Text;
+    hpText: Phaser.GameObjects.Text;
     playerShadowGlow: Phaser.GameObjects.Arc | null = null;
+    hp: number = 10;
+    maxHp: number = 10;
+    isInvulnerable: boolean = false;
     private canMove: boolean = false;
+    private isPaused: boolean = false;
+    private pauseMenu: Phaser.GameObjects.Container | null = null;
+    private pauseMenuOptions: { text: Phaser.GameObjects.Text, action: () => void }[] = [];
+    private pauseSelectedIndex: number = 0;
+    private escKey: Phaser.Input.Keyboard.Key | null = null;
     
     // Map Config
     private readonly GRID_W = 30;
@@ -372,6 +382,7 @@ export class LarvaDisposalPit extends Scene {
         // --- Controls ---
         if (this.input.keyboard) {
             this.cursors = this.input.keyboard.createCursorKeys();
+            this.escKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
         }
 
         // --- Camera ---
@@ -383,18 +394,24 @@ export class LarvaDisposalPit extends Scene {
         // --- Intro ---
         this.setupIntro();
         
+        // --- Load Save Data (if any) ---
+        const sceneData = this.scene.settings.data as any;
+        if (sceneData?.loadSave && sceneData?.saveData) {
+            this.loadSaveData(sceneData.saveData);
+        }
+        
         // --- Collisions ---
         this.physics.add.collider(this.player, this.platforms);
         
         // Hazard overlap
         this.physics.add.overlap(this.player, this.hazards, () => {
-             this.handleDeath();
+             this.takeDamage(1);
         });
 
         // Enforcer overlap
         this.physics.add.overlap(this.player, this.enforcers, () => {
             if (!this.isPlayerInShadow || !this.hasShadowMask) {
-                this.handleDeath();
+                this.takeDamage(1);
             }
         });
 
@@ -407,6 +424,13 @@ export class LarvaDisposalPit extends Scene {
                         x: checkpoint.sprite.x, 
                         y: checkpoint.sprite.y 
                     };
+                }
+                
+                // Heal player if not at full HP
+                if (this.hp < this.maxHp) {
+                    this.hp = this.maxHp;
+                    this.updateHPText();
+                    this.showHealMessage();
                 }
             });
         });
@@ -440,8 +464,18 @@ export class LarvaDisposalPit extends Scene {
     }
 
     private setupUI() {
+        // HP display
+        this.hpText = this.add.text(20, 20, 'HP: 10/10', {
+            fontFamily: 'Courier',
+            fontSize: '20px',
+            color: '#ff0000',
+            fontStyle: 'bold'
+        })
+        .setScrollFactor(0)
+        .setDepth(200);
+
         // Score display
-        this.scoreText = this.add.text(20, 20, 'GEMS: 0/0', {
+        this.scoreText = this.add.text(20, 50, 'GEMS: 0/0', {
             fontFamily: 'Courier',
             fontSize: '18px',
             color: '#ffdd00',
@@ -451,7 +485,7 @@ export class LarvaDisposalPit extends Scene {
         .setDepth(200);
 
         // Mask indicator
-        this.maskIndicator = this.add.text(20, 50, '', {
+        this.maskIndicator = this.add.text(20, 80, '', {
             fontFamily: 'Courier',
             fontSize: '16px',
             color: '#888888',
@@ -462,6 +496,41 @@ export class LarvaDisposalPit extends Scene {
 
     private updateScoreText() {
         this.scoreText.setText(`GEMS: ${this.score}/${this.totalGems}`);
+    }
+
+    private updateHPText() {
+        this.hpText.setText(`HP: ${this.hp}/${this.maxHp}`);
+        
+        // Change color based on HP
+        if (this.hp <= 3) {
+            this.hpText.setColor('#ff0000');
+        } else if (this.hp <= 6) {
+            this.hpText.setColor('#ff8800');
+        } else {
+            this.hpText.setColor('#00ff00');
+        }
+    }
+
+    takeDamage(amount: number = 1) {
+        if (this.isInvulnerable) return;
+        
+        this.hp = Math.max(0, this.hp - amount);
+        this.updateHPText();
+        
+        // Flash player red
+        this.player.setTint(0xff0000);
+        this.time.delayedCall(100, () => this.player.clearTint());
+        
+        // Screen shake
+        this.cameras.main.shake(100, 0.005);
+        
+        // Brief invulnerability
+        this.isInvulnerable = true;
+        this.time.delayedCall(500, () => this.isInvulnerable = false);
+        
+        if (this.hp <= 0) {
+            this.handleDeath();
+        }
     }
 
     private gridToWorld(gridX: number, gridY: number): { x: number, y: number } {
@@ -504,7 +573,7 @@ export class LarvaDisposalPit extends Scene {
             "#...........g...............#", // Y=61
             "#.....===...................#", // Y=60
             "#...........................#", // Y=59
-            "#..g........................#", // Y=58
+            "#..g........===.............#", // Y=58
             "#....................===....#", // Y=57
             "#............g..............#", // Y=56
             "#........===.....===........#", // Y=55 - Platform under mask
@@ -515,14 +584,14 @@ export class LarvaDisposalPit extends Scene {
             "#...........g...............#", // Y=50
             "#......===..................#", // Y=49 - SANCTUARY ZONE D
             "############....#############", // Y=48 - Checkpoint 3
-            "#..........#....#.....g.....#", // Y=47
+            "#..........#..=.#.....g.....#", // Y=47
             "#..........#....#...........#", // Y=46
             "#.===......#....#.===.......#", // Y=45 - Side platforms
-            "#..g.......#....#...S..g....#", // Y=44 - Shadow + gems
+            "#..g.......#....#...S.......#", // Y=44 - Shadow + gems
             "#..........#....#..====.....#", // Y=43
             "#.===......#.==.#...........#", // Y=42 - Intermediate zigzag
-            "####.......#....#.......====", // Y=41
-            "#..........===g===..........#", // Y=40 - Center platform + gem
+            "####.......#.........=======", // Y=41
+            "#............=====..........#", // Y=40 - Center platform + gem
             "########...#....#...########", // Y=39 - Intermediate platform
             "#.........=#.==.#...........#", // Y=38
             "#..g.......#....#.......g...#", // Y=37 - Gems
@@ -879,7 +948,12 @@ export class LarvaDisposalPit extends Scene {
     }
 
     handleDeath() {
-        this.cameras.main.flash(200, 255, 0, 0);
+        this.cameras.main.flash(400, 255, 0, 0);
+        this.cameras.main.shake(200, 0.01);
+        
+        // Reset HP
+        this.hp = this.maxHp;
+        this.updateHPText();
         
         if (this.lastCheckpoint) {
             this.player.setPosition(this.lastCheckpoint.x, this.lastCheckpoint.y);
@@ -890,6 +964,7 @@ export class LarvaDisposalPit extends Scene {
         
         this.player.setVelocity(0, 0);
         this.isPlayerDetected = false;
+        this.isInvulnerable = false;
     }
 
     private handleLevelComplete() {
@@ -913,6 +988,16 @@ export class LarvaDisposalPit extends Scene {
     }
 
     update() {
+        // Check for pause
+        if (this.escKey && Phaser.Input.Keyboard.JustDown(this.escKey)) {
+            this.togglePause();
+        }
+
+        if (this.isPaused) {
+            this.updatePauseMenu();
+            return;
+        }
+
         if (!this.canMove) return;
         
         // Reset shadow state each frame
@@ -960,5 +1045,219 @@ export class LarvaDisposalPit extends Scene {
         const currentOffsetY = this.camera.followOffset.y;
         const lerpedOffset = Phaser.Math.Linear(currentOffsetY, targetOffsetY, 0.05);
         this.camera.setFollowOffset(0, lerpedOffset);
+    }
+
+    private togglePause() {
+        if (this.isPaused) {
+            this.resumeGame();
+        } else {
+            this.pauseGame();
+        }
+    }
+
+    private pauseGame() {
+        this.isPaused = true;
+        this.physics.pause();
+        this.tweens.pauseAll();
+
+        // Create pause menu container
+        const { width, height } = this.scale;
+        this.pauseMenu = this.add.container(0, 0).setScrollFactor(0).setDepth(300);
+
+        // Semi-transparent overlay
+        const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.8);
+        this.pauseMenu.add(overlay);
+
+        // Title
+        const title = this.add.text(width / 2, height / 2 - 120, 'PAUSED', {
+            fontFamily: 'Courier',
+            fontSize: '48px',
+            color: '#ffffff',
+            fontStyle: 'bold'
+        }).setOrigin(0.5);
+        this.pauseMenu.add(title);
+
+        // Menu options
+        const options = [
+            { text: 'RESUME', action: () => this.resumeGame() },
+            { text: 'SAVE GAME', action: () => this.saveGame() },
+            { text: 'EXIT TO MENU', action: () => this.exitToMenu() }
+        ];
+
+        this.pauseMenuOptions = [];
+        const startY = height / 2 - 20;
+        const spacing = 60;
+
+        options.forEach((option, index) => {
+            const text = this.add.text(width / 2, startY + (index * spacing), option.text, {
+                fontFamily: 'Courier',
+                fontSize: '24px',
+                color: '#888888'
+            }).setOrigin(0.5);
+
+            text.setInteractive();
+            text.on('pointerover', () => {
+                this.pauseSelectedIndex = index;
+                this.updatePauseMenuDisplay();
+            });
+            text.on('pointerdown', () => option.action());
+
+            if (this.pauseMenu) {
+                this.pauseMenu.add(text);
+            }
+            this.pauseMenuOptions.push({ text, action: option.action });
+        });
+
+        this.pauseSelectedIndex = 0;
+        this.updatePauseMenuDisplay();
+    }
+
+    private resumeGame() {
+        this.isPaused = false;
+        this.physics.resume();
+        this.tweens.resumeAll();
+
+        if (this.pauseMenu) {
+            this.pauseMenu.destroy();
+            this.pauseMenu = null;
+        }
+        this.pauseMenuOptions = [];
+    }
+
+    private updatePauseMenu() {
+        if (this.cursors) {
+            if (Phaser.Input.Keyboard.JustDown(this.cursors.up)) {
+                this.pauseSelectedIndex = (this.pauseSelectedIndex - 1 + this.pauseMenuOptions.length) % this.pauseMenuOptions.length;
+                this.updatePauseMenuDisplay();
+            } else if (Phaser.Input.Keyboard.JustDown(this.cursors.down)) {
+                this.pauseSelectedIndex = (this.pauseSelectedIndex + 1) % this.pauseMenuOptions.length;
+                this.updatePauseMenuDisplay();
+            }
+
+            if (Phaser.Input.Keyboard.JustDown(this.cursors.space) || 
+                (this.input.keyboard && Phaser.Input.Keyboard.JustDown(this.input.keyboard.addKey('ENTER')))) {
+                this.pauseMenuOptions[this.pauseSelectedIndex].action();
+            }
+        }
+    }
+
+    private updatePauseMenuDisplay() {
+        this.pauseMenuOptions.forEach((option, index) => {
+            if (index === this.pauseSelectedIndex) {
+                option.text.setColor('#ffffff').setFontSize('28px').setFontStyle('bold');
+            } else {
+                option.text.setColor('#888888').setFontSize('24px').setFontStyle('normal');
+            }
+        });
+    }
+
+    private showHealMessage() {
+        const msg = this.add.text(this.scale.width / 2, this.scale.height / 2 - 100, 'FULLY HEALED', {
+            fontFamily: 'Courier',
+            fontSize: '24px',
+            color: '#00ff88',
+            fontStyle: 'bold'
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(250);
+
+        this.tweens.add({
+            targets: msg,
+            y: msg.y - 50,
+            alpha: { from: 1, to: 0 },
+            duration: 1500,
+            ease: 'Cubic.easeOut',
+            onComplete: () => msg.destroy()
+        });
+    }
+
+    private saveGame() {
+        const saveData = {
+            score: this.score,
+            totalGems: this.totalGems,
+            hasShadowMask: this.hasShadowMask,
+            lastCheckpoint: this.lastCheckpoint,
+            hp: this.hp,
+            collectedGems: this.scoreGems.map(gem => ({
+                x: gem.sprite.x,
+                y: gem.sprite.y,
+                collected: gem.collected
+            })),
+            activatedCheckpoints: this.checkpoints.map(cp => cp.isActivated),
+            playerPosition: { x: this.player.x, y: this.player.y },
+            timestamp: Date.now()
+        };
+
+        try {
+            localStorage.setItem('shatter_save', JSON.stringify(saveData));
+            this.showPauseMessage('GAME SAVED');
+        } catch (e) {
+            this.showPauseMessage('SAVE FAILED');
+            console.error('Save failed:', e);
+        }
+    }
+
+    private loadSaveData(data: any) {
+        if (!data) return;
+
+        this.score = data.score || 0;
+        this.hasShadowMask = data.hasShadowMask || false;
+        this.lastCheckpoint = data.lastCheckpoint || null;
+        this.hp = data.hp || this.maxHp;
+
+        // Restore player position
+        if (data.playerPosition) {
+            this.player.setPosition(data.playerPosition.x, data.playerPosition.y);
+        }
+
+        // Restore collected gems
+        if (data.collectedGems) {
+            data.collectedGems.forEach((gemData: any, index: number) => {
+                if (gemData.collected && this.scoreGems[index]) {
+                    this.scoreGems[index].collected = true;
+                    this.scoreGems[index].sprite.destroy();
+                }
+            });
+        }
+
+        // Restore activated checkpoints
+        if (data.activatedCheckpoints) {
+            data.activatedCheckpoints.forEach((activated: boolean, index: number) => {
+                if (activated && this.checkpoints[index]) {
+                    this.checkpoints[index].isActivated = true;
+                    this.checkpoints[index].sprite.setFillStyle(0xffffff, 1);
+                    this.checkpoints[index].sprite.setStrokeStyle(4, 0xffffff);
+                    this.checkpoints[index].glow.setFillStyle(0xffffff, 0.5);
+                }
+            });
+        }
+
+        // Update UI
+        this.updateScoreText();
+        this.updateHPText();
+        if (this.hasShadowMask) {
+            this.maskIndicator.setText('■ SHADOW MASK').setColor('#000000');
+        }
+
+        this.narrativeText.setText('GAME LOADED').setAlpha(1);
+        this.time.delayedCall(2000, () => this.narrativeText.setAlpha(0));
+    }
+
+    private exitToMenu() {
+        this.resumeGame();
+        this.scene.start('MainMenu');
+    }
+
+    private showPauseMessage(message: string) {
+        const msg = this.add.text(this.scale.width / 2, this.scale.height - 80, message, {
+            fontFamily: 'Courier',
+            fontSize: '18px',
+            color: '#00ff88'
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(400);
+
+        this.tweens.add({
+            targets: msg,
+            alpha: 0,
+            duration: 2000,
+            onComplete: () => msg.destroy()
+        });
     }
 }
