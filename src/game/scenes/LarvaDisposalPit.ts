@@ -623,13 +623,13 @@ export class LarvaDisposalPit extends Scene {
             "############....#############", // Y=77
             "#.........C..........===....#", // Y=76 - Checkpoint 4 + bridge
             "#..........====.......S.....#", // Y=75 - Bridge + Shadow
-            "#.......===......====.......#", // Y=74 - Bridge platforms
+            "#.......===........====.....#", // Y=74 - Bridge platforms
             "#....g........S.............#", // Y=73 - Gem + Shadow
-            "#..........====.....==......#", // Y=72 - Bridge platforms
+            "#..........====......====...#", // Y=72 - Bridge platforms
             "#...g...........g...........#", // Y=71 - Gems
             "#......====.........====....#", // Y=70 - Bridge platforms
             "#.....S...........g.........#", // Y=69 - Shadow + gem
-            "#..........====.....====....#", // Y=68 - Bridge platforms
+            "#....==....====.....====....#", // Y=68 - Bridge platforms
             "#...g...........g...........#", // Y=67 - Gems
             "########===.........====....#", // Y=66 - Platform + bridge
             "#..........g........===.....#", // Y=65 - Gem
@@ -656,7 +656,7 @@ export class LarvaDisposalPit extends Scene {
             "#..g.......#....#...S.......#", // Y=44 - Shadow + gems
             "#..........#....#..====.....#", // Y=43
             "#.===......#.==.#...........#", // Y=42 - Intermediate zigzag
-            "####.......#.........=======", // Y=41
+            "####.................=======", // Y=41
             "#............=====..........#", // Y=40 - Center platform + gem
             "########...#....#...########", // Y=39 - Intermediate platform
             "#.........=#.==.#...........#", // Y=38
@@ -956,14 +956,15 @@ export class LarvaDisposalPit extends Scene {
     }
 
     private createLighting() {
+        // @note remove shadow overlays for better visibility
         // Zone A (Y 0-15) - Deep Shadows.
-        this.createZoneOverlay(0, 15, 0x000000, 0.6);
+        //this.createZoneOverlay(0, 15, 0x000000, 0.6);
 
         // Zone B (Y 16-31) - Industrial Gloom.
-        this.createZoneOverlay(16, 31, 0x4A5E6D, 0.3);
+        //this.createZoneOverlay(16, 31, 0x4A5E6D, 0.3);
 
         // Zone C (Y 32-47) - Very Dark.
-        this.createZoneOverlay(32, 47, 0x000000, 0.8);
+        //this.createZoneOverlay(32, 47, 0x000000, 0.8);
 
         // Zone D (Y 48-63) - Warm, sickly yellow-orange.
         this.createZoneOverlay(48, 63, 0x8A7F50, 0.2);
