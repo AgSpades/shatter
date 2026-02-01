@@ -281,6 +281,9 @@ class ScoreGem {
 
         this.collected = true;
 
+        // Play coin sound effect
+        this.playCoinSound(scene);
+
         // Background flash effect
         const flash = scene.add.circle(this.sprite.x, this.sprite.y, 80, 0xffdd00, 0.6);
         flash.setDepth(5);
@@ -294,6 +297,31 @@ class ScoreGem {
         });
 
         this.sprite.destroy();
+    }
+
+    private playCoinSound(scene: Scene) {
+        // Create a pleasant coin collection sound using Web Audio API
+        const soundManager = scene.sound as any;
+        const audioContext = soundManager.context as AudioContext;
+        if (!audioContext) return;
+
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        // Bright, cheerful coin sound (C6 to E6)
+        oscillator.frequency.setValueAtTime(1046.5, audioContext.currentTime); // C6
+        oscillator.frequency.exponentialRampToValueAtTime(1318.5, audioContext.currentTime + 0.1); // E6
+
+        // Volume envelope
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+
+        oscillator.type = 'sine';
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.15);
     }
 }
 
