@@ -10,6 +10,9 @@ export class Enforcer extends Phaser.Physics.Arcade.Sprite {
     constructor(scene: Scene, x: number, y: number, range: number, axis: 'x' | 'y' = 'x') {
         super(scene, x, y, 'sprite1'); 
 
+        scene.add.existing(this);
+        scene.physics.add.existing(this);
+
         this.axis = axis;
         if (axis === 'x') {
             this.startPos = x;
@@ -20,9 +23,6 @@ export class Enforcer extends Phaser.Physics.Arcade.Sprite {
             this.endPos = y + range;
             this.setVelocityY(this.moveSpeed);
         }
-
-        scene.add.existing(this);
-        scene.physics.add.existing(this);
 
         this.setDisplaySize(80, 80); 
         this.setTint(0xff0000); 
