@@ -10,7 +10,7 @@ class SmartEnforcer extends Enforcer {
     private isWaiting: boolean = false;
     private moveDirection: number = 1;
     private currentAxis: 'x' | 'y';
-    private speed: number = 150;
+    private speed: number = 180; // Increased speed for more dynamic movement
     private detectionRadius: number = 256; // 4 tiles
     private detectionIndicator: Phaser.GameObjects.Text | null = null;
     public declare scene: Scene;
@@ -27,7 +27,7 @@ class SmartEnforcer extends Enforcer {
         this.currentAxis = axis;
         this.pathStart = isHorizontal ? x : y;
         this.pathEnd = isHorizontal ? endX : endY;
-        this.waitTime = waitDuration * 1000;
+        this.waitTime = Math.max(100, waitDuration * 1000); // Minimum 100ms wait
         this.moveDirection = (this.pathEnd >= this.pathStart) ? 1 : -1;
 
         // Create detection indicator
@@ -37,7 +37,6 @@ class SmartEnforcer extends Enforcer {
             fontStyle: 'bold'
         }).setOrigin(0.5).setVisible(false).setDepth(150);
 
-        this.setVelocity(0, 0);
         this.startMoving();
     }
 
@@ -46,9 +45,11 @@ class SmartEnforcer extends Enforcer {
     }
 
     startMoving() {
+        if (!this.scene) return;
+
         if (this.currentAxis === 'x') {
             this.setVelocityX(this.speed * this.moveDirection);
-            this.setFlipX(this.moveDirection < 0);
+            this.setFlipX(this.moveDirection > 0);
         } else {
             this.setVelocityY(this.speed * this.moveDirection);
         }
@@ -56,13 +57,21 @@ class SmartEnforcer extends Enforcer {
     }
 
     update() {
-        if (this.isWaiting) return;
+        if (this.isWaiting || !this.body) return;
 
         const currentPos = this.currentAxis === 'x' ? this.x : this.y;
         const target = (this.moveDirection > 0) ? Math.max(this.pathStart, this.pathEnd) : Math.min(this.pathStart, this.pathEnd);
         const dist = Math.abs(target - currentPos);
 
-        if (dist < 10) {
+        // Continuous flipping based on movement
+        if (this.currentAxis === 'x') {
+            this.setFlipX(this.moveDirection > 0);
+        } else if (this.player) {
+            // Vertical enemies face the player horizontally
+            this.setFlipX(this.player.x > this.x);
+        }
+
+        if (dist < 15) { // Increased tolerance for smoother turning
             if (this.currentAxis === 'x') this.x = target;
             else this.y = target;
             this.stopAndTurn();
@@ -1143,7 +1152,8 @@ export class LarvaDisposalPit extends Scene {
         restartBtn.on('pointerover', () => restartBtn.setScale(1.1).setColor('#ffffff'));
         restartBtn.on('pointerout', () => restartBtn.setScale(1.0).setColor('#ffdd00'));
         restartBtn.on('pointerdown', () => {
-            this.scene.restart();
+            localStorage.removeItem('shatter_save');
+            this.scene.restart({ loadSave: false });
         });
 
         completeContainer.add(restartBtn);
