@@ -283,8 +283,8 @@ class Checkpoint {
     }
 }
 
-// Score Gem collectible
-class ScoreGem {
+// Coin collectible
+class Coin {
     sprite: Phaser.GameObjects.Sprite;
     collected: boolean = false;
 
@@ -380,17 +380,19 @@ export class LarvaDisposalPit extends Scene {
     enforcers: Phaser.GameObjects.Group;
     timedHazards: TimedHazard[] = [];
     checkpoints: Checkpoint[] = [];
-    scoreGems: ScoreGem[] = [];
+    coins: Coin[] = [];
     shadowZones: Phaser.GameObjects.Rectangle[] = [];
     lastCheckpoint: { x: number, y: number } | null = null;
     isPlayerInShadow: boolean = false;
     isPlayerDetected: boolean = false;
     hasShadowMask: boolean = false;
     score: number = 0;
-    totalGems: number = 0;
-    scoreText: Phaser.GameObjects.Text;
+    totalCoins: number = 0;
+    coinText: Phaser.GameObjects.Text;
     maskIndicator: Phaser.GameObjects.Text;
     hpText: Phaser.GameObjects.Text;
+    hpBarBg: Phaser.GameObjects.Rectangle;
+    hpBarFill: Phaser.GameObjects.Rectangle;
     playerShadowGlow: Phaser.GameObjects.Arc | null = null;
     hp: number = 10;
     maxHp: number = 10;
@@ -568,13 +570,13 @@ export class LarvaDisposalPit extends Scene {
             });
         });
 
-        // Gem collection
-        this.scoreGems.forEach(gem => {
-            this.physics.add.overlap(this.player, gem.sprite, () => {
-                if (!gem.collected) {
-                    gem.collect(this);
+        // Coin collection
+        this.coins.forEach(coin => {
+            this.physics.add.overlap(this.player, coin.sprite, () => {
+                if (!coin.collected) {
+                    coin.collect(this);
                     this.score++;
-                    this.updateScoreText();
+                    this.updateCoinText();
                 }
             });
         });
@@ -597,50 +599,78 @@ export class LarvaDisposalPit extends Scene {
     }
 
     private setupUI() {
-        // HP display
-        this.hpText = this.add.text(20, 20, 'HP: 10/10', {
+        const uiX = 20;
+        const uiY = 20;
+
+        // --- HP BAR ---
+        // Label
+        this.add.text(uiX, uiY, 'LIFE', {
             fontFamily: 'Courier',
-            fontSize: '20px',
-            color: '#ff0000',
+            fontSize: '18px',
+            color: '#ffffff',
             fontStyle: 'bold'
-        })
+        }).setScrollFactor(0).setDepth(200);
+
+        // HP Bar Background
+        this.hpBarBg = this.add.rectangle(uiX + 60, uiY + 10, 200, 20, 0x000000, 0.5)
+            .setOrigin(0, 0.5)
+            .setStrokeStyle(2, 0xffffff)
             .setScrollFactor(0)
             .setDepth(200);
 
-        // Score display
-        this.scoreText = this.add.text(20, 50, 'GEMS: 0/0', {
+        // HP Bar Fill
+        this.hpBarFill = this.add.rectangle(uiX + 62, uiY + 10, 196, 16, 0x33ff33)
+            .setOrigin(0, 0.5)
+            .setScrollFactor(0)
+            .setDepth(201);
+
+        // HP Text (Percentage or fraction)
+        this.hpText = this.add.text(uiX + 270, uiY, '10/10', {
+            fontFamily: 'Courier',
+            fontSize: '16px',
+            color: '#ffffff',
+            fontStyle: 'bold'
+        }).setScrollFactor(0).setDepth(200);
+
+        // --- COIN DISPLAY ---
+        // Emoji icon for aesthetic
+        this.add.text(uiX, uiY + 40, '🪙', { fontSize: '24px' })
+            .setScrollFactor(0)
+            .setDepth(200);
+
+        this.coinText = this.add.text(uiX + 40, uiY + 42, 'COINS: 0/0', {
             fontFamily: 'Courier',
             fontSize: '18px',
             color: '#ffdd00',
             fontStyle: 'bold'
-        })
-            .setScrollFactor(0)
-            .setDepth(200);
+        }).setScrollFactor(0).setDepth(200);
 
         // Mask indicator
-        this.maskIndicator = this.add.text(20, 80, '', {
+        this.maskIndicator = this.add.text(uiX, uiY + 75, '', {
             fontFamily: 'Courier',
-            fontSize: '16px',
-            color: '#888888',
-        })
-            .setScrollFactor(0)
-            .setDepth(200);
+            fontSize: '14px',
+            color: '#aaaaaa',
+        }).setScrollFactor(0).setDepth(200);
     }
 
-    private updateScoreText() {
-        this.scoreText.setText(`GEMS: ${this.score}/${this.totalGems}`);
+    private updateCoinText() {
+        this.coinText.setText(`COINS: ${this.score}/${this.totalCoins}`);
     }
 
     private updateHPText() {
-        this.hpText.setText(`HP: ${this.hp}/${this.maxHp}`);
+        this.hpText.setText(`${this.hp}/${this.maxHp}`);
 
-        // Change color based on HP
-        if (this.hp <= 3) {
-            this.hpText.setColor('#ff0000');
-        } else if (this.hp <= 6) {
-            this.hpText.setColor('#ff8800');
+        // Update bar width
+        const percentage = Math.max(0, this.hp / this.maxHp);
+        this.hpBarFill.width = 196 * percentage;
+
+        // Change color based on HP percentage
+        if (percentage <= 0.3) {
+            this.hpBarFill.setFillStyle(0xff3333); // Red
+        } else if (percentage <= 0.6) {
+            this.hpBarFill.setFillStyle(0xffaa33); // Orange
         } else {
-            this.hpText.setColor('#00ff00');
+            this.hpBarFill.setFillStyle(0x33ff33); // Green
         }
     }
 
@@ -741,7 +771,7 @@ export class LarvaDisposalPit extends Scene {
             "######=======.g.........######", // Y=25
             "#.........g.................##", // Y=24
             "#....===.........===.....g..##", // Y=23 - Left stepping stone
-            "#........S..................##", // Y=22 - Shadow zone
+            "#...........................##", // Y=22 - Shadow zone
             "#######===############===...##", // Y=21
             "#.....g........g............##", // Y=20
             "########################==..##", // Y=19
@@ -816,8 +846,6 @@ export class LarvaDisposalPit extends Scene {
                     this.physics.add.overlap(this.player, exit, () => this.handleLevelComplete());
                 } else if (char === 'M') {
                     this.createMask(pos.x, pos.y);
-                } else if (char === 'D') {
-                    this.add.rectangle(pos.x, pos.y + 10, 40, 20, 0x330000).setOrigin(0.5);
                 } else if (char === 'C') {
                     // Checkpoint marker - handled in createCheckpoints()
                 } else if (char === 'g') {
@@ -828,7 +856,7 @@ export class LarvaDisposalPit extends Scene {
     }
 
     private createCollectibles() {
-        // Parse map for gems 'g'
+        // Parse map for coins 'g'
         const mapData = [
             "##############################", "#.............X..............#", "############....#############",
             "#.........C..........===....#", "#..........====.......S.....#", "#.......===......====.......#",
@@ -864,13 +892,13 @@ export class LarvaDisposalPit extends Scene {
             for (let x = 0; x < row.length; x++) {
                 if (row[x] === 'g') {
                     const pos = this.gridToWorld(x, gridY);
-                    this.scoreGems.push(new ScoreGem(this, pos.x, pos.y));
-                    this.totalGems++;
+                    this.coins.push(new Coin(this, pos.x, pos.y));
+                    this.totalCoins++;
                 }
             }
         });
 
-        this.updateScoreText();
+        this.updateCoinText();
     }
 
     private createCheckpoints() {
@@ -995,7 +1023,7 @@ export class LarvaDisposalPit extends Scene {
 
         this.physics.add.overlap(this.player, mask, () => {
             this.hasShadowMask = true;
-            this.narrativeText.setText("SHADOW MASK OBTAINED.\\nBLEND WITH DARKNESS.\\nAUTO-HEALING ACTIVATED.").setAlpha(1);
+            this.narrativeText.setText(`SHADOW MASK OBTAINED.\\nBLEND WITH DARKNESS.\\nAUTO-HEALING ACTIVATED.`).setAlpha(1);
             this.maskIndicator.setText('■ SHADOW MASK').setColor('#000000');
 
             // Particle effect
@@ -1102,8 +1130,8 @@ export class LarvaDisposalPit extends Scene {
         this.canMove = false;
 
         let message = "ACT 1 COMPLETE.\nASCENT ACHIEVED.";
-        if (this.score === this.totalGems) {
-            message = "PERFECT ASCENT!\nALL GEMS COLLECTED.\n" + message;
+        if (this.score === this.totalCoins) {
+            message = "PERFECT ASCENT!\nALL COINS COLLECTED.\n" + message;
         }
 
         this.narrativeText.setText(message).setAlpha(1);
@@ -1357,14 +1385,14 @@ export class LarvaDisposalPit extends Scene {
     private saveGame() {
         const saveData = {
             score: this.score,
-            totalGems: this.totalGems,
+            totalCoins: this.totalCoins,
             hasShadowMask: this.hasShadowMask,
             lastCheckpoint: this.lastCheckpoint,
             hp: this.hp,
-            collectedGems: this.scoreGems.map(gem => ({
-                x: gem.sprite.x,
-                y: gem.sprite.y,
-                collected: gem.collected
+            collectedCoins: this.coins.map(coin => ({
+                x: coin.sprite.x,
+                y: coin.sprite.y,
+                collected: coin.collected
             })),
             activatedCheckpoints: this.checkpoints.map(cp => cp.isActivated),
             playerPosition: { x: this.player.x, y: this.player.y },
@@ -1393,12 +1421,12 @@ export class LarvaDisposalPit extends Scene {
             this.player.setPosition(data.playerPosition.x, data.playerPosition.y);
         }
 
-        // Restore collected gems
-        if (data.collectedGems) {
-            data.collectedGems.forEach((gemData: any, index: number) => {
-                if (gemData.collected && this.scoreGems[index]) {
-                    this.scoreGems[index].collected = true;
-                    this.scoreGems[index].sprite.destroy();
+        // Restore collected coins
+        if (data.collectedCoins) {
+            data.collectedCoins.forEach((coinData: any, index: number) => {
+                if (coinData.collected && this.coins[index]) {
+                    this.coins[index].collected = true;
+                    this.coins[index].sprite.destroy();
                 }
             });
         }
@@ -1416,7 +1444,7 @@ export class LarvaDisposalPit extends Scene {
         }
 
         // Update UI
-        this.updateScoreText();
+        this.updateCoinText();
         this.updateHPText();
         if (this.hasShadowMask) {
             this.maskIndicator.setText('■ SHADOW MASK').setColor('#000000');
