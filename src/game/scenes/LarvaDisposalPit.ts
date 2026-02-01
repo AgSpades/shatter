@@ -1083,10 +1083,24 @@ export class LarvaDisposalPit extends Scene {
 
     private createShadowZone(gx: number, gy: number) {
         const pos = this.gridToWorld(gx, gy);
-        const zone = this.add.rectangle(pos.x, pos.y, this.TILE_SIZE * 1.5, this.TILE_SIZE * 1.5, 0x000000, 0.7);
+        // Apply the Safeguard sprite instead of a black box
+        const zone = this.add.sprite(pos.x, pos.y, 'safeguard').setDisplaySize(this.TILE_SIZE * 2, this.TILE_SIZE * 2);
+        zone.setAlpha(0.6);
         zone.setDepth(10);
+
+        // Add subtle rotation/pulse for "active" look
+        this.tweens.add({
+            targets: zone,
+            alpha: 0.4,
+            scale: zone.scaleX * 1.1,
+            duration: 2000,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut'
+        });
+
         this.physics.add.existing(zone, true);
-        this.shadowZones.push(zone);
+        this.shadowZones.push(zone as any); // Type cast for physics rectangle array
     }
 
     private createMask(x: number, y: number) {
@@ -1356,12 +1370,20 @@ export class LarvaDisposalPit extends Scene {
                 }
             });
 
-            if (inAnyShadow && this.hasShadowMask) {
+            if (inAnyShadow) {
                 this.isPlayerInShadow = true;
-                this.playerShadowGlow.setVisible(true);
-                this.player.setAlpha(0.5); // Darken player
+                if (this.hasShadowMask) {
+                    this.playerShadowGlow.setVisible(true);
+                    this.player.setAlpha(0.4); // Deep stealth with mask
+                } else {
+                    this.playerShadowGlow.setVisible(true);
+                    this.playerShadowGlow.setAlpha(0.3); // Faint light when protected without mask
+                    this.player.setAlpha(0.7); // Partial stealth
+                }
             } else {
+                this.isPlayerInShadow = false;
                 this.playerShadowGlow.setVisible(false);
+                this.playerShadowGlow.setAlpha(0.6); // Reset alpha
                 this.player.setAlpha(1.0); // Normal
             }
         }
