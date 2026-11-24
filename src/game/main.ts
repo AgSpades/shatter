@@ -17,6 +17,10 @@ const config: Phaser.Types.Core.GameConfig = {
     height: 1024,
     parent: 'game-container',
     backgroundColor: '#1a1a1d',
+    fps: {
+        // Native WebViews can stop delivering animation frames while the window is hidden.
+        forceSetTimeOut: 'isTauri' in window && window.isTauri === true
+    },
     scale: {
         mode: Phaser.Scale.RESIZE,
         width: '100%',
